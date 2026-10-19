@@ -14,7 +14,7 @@ A free, open source volume shaper (VST3 and standalone) for kick pumps, trance g
 - No telemetry, no network, no data collected.
 
 ## Status
-First build: the code compiles in CI and the DSP core has automated tests (`sh tests/run.sh`), but nothing has been listened to or run in a DAW yet. Free and open source. Donations welcome (link coming).
+First build: the code compiles in CI and the DSP core has automated tests (`sh tests/run.sh`), but nothing has been listened to or run in a DAW yet. Free and open source. Donations welcome: https://ko-fi.com/studio87
 
 ## Docs
 - [Manual (PDF)](docs/ScaredyCat-manual.pdf)
