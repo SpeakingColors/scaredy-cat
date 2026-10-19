@@ -21,6 +21,7 @@ Scaredy Cat is a volume shaper that makes your sound duck, pump or chop in time 
 - Right: the big AMOUNT knob, the output level (OUT) and the biggest gain reduction (GR) in dB, output meters and one gain reduction meter per band.
 - Bottom bar: Speed (a note length when Sync is on, Hz when off), Trigger, the sidechain trigger switch, Limit, Smooth and Offset. The padlock locks the envelopes so a stray click cannot change them.
 - Hover a control for about one second to see an info bubble. Turn bubbles off with the round i button in the header.
+- The round gear button in the header opens Settings: the plugin version, a link to the GitHub page and the releases page (it opens your browser; the plugin itself never goes online), and a switch for the info bubbles.
 - Save stores your settings and all three envelopes as your own preset in the Studio 87 presets folder; they appear in the preset menu after the factory presets.
 - Resize the window by dragging any edge or corner (the shape stays the same, 60 % to 200 %); the 100% button returns to the normal size, and the size is remembered.
 

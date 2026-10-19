@@ -837,6 +837,23 @@ struct Content : public juce::Component
 
     // top
     ToggleChip power;
+    struct GearButton : juce::Button
+    {
+        GearButton() : juce::Button("settings") {}
+        void paintButton(juce::Graphics& g, bool hi, bool down) override
+        {
+            auto r = getLocalBounds().toFloat().reduced(0.5f);
+            const juce::Colour amber(0xffFFA600), pan(0xff2C2C62);
+            g.setColour(hi || down ? pan.brighter(0.15f) : pan); g.fillEllipse(r);
+            g.setColour(amber); g.drawEllipse(r, 1.5f);
+            auto c = r.getCentre(); const float R = r.getWidth() * 0.5f;
+            juce::Path gear;
+            for (int i = 0; i < 8; ++i)
+            { gear.addRectangle(-R * 0.10f, -R * 0.56f, R * 0.20f, R * 0.18f); gear.applyTransform(juce::AffineTransform::rotation(juce::MathConstants<float>::pi / 4.f)); }
+            g.fillPath(gear, juce::AffineTransform::translation(c.x, c.y));
+            g.drawEllipse(c.x - R * 0.34f, c.y - R * 0.34f, R * 0.68f, R * 0.68f, R * 0.16f);
+        }
+    } gearBtn;
     juce::TextButton prevBtn { "<" }, nextBtn { ">" }, saveBtn { "Save" }, tipsBtn { "i" }, menuBtn { "Menu" }, sizeBtn { "100%" };
     juce::ComboBox presetBox;
     // left
@@ -877,7 +894,7 @@ struct Content : public juce::Component
           offUnit(par(p, "offunit"), { "ms", "smp" }, catui::SodaPop::mint())
     {
         logo = juce::Drawable::createFromSVG(*juce::parseXML(juce::String::fromUTF8(kLogoSvg)));
-        for (auto* c : std::initializer_list<juce::Component*>{ &power, &prevBtn, &nextBtn, &saveBtn, &tipsBtn, &menuBtn, &sizeBtn, &presetBox, &multi, &slope, &cross, &linkedStrip, &linear, &scTrig, &env, &shapes,
+        for (auto* c : std::initializer_list<juce::Component*>{ &power, &prevBtn, &nextBtn, &saveBtn, &tipsBtn, &gearBtn, &menuBtn, &sizeBtn, &presetBox, &multi, &slope, &cross, &linkedStrip, &linear, &scTrig, &env, &shapes,
                                                                 &snapChip, &gridChip, &swingChip, &specMode, &spectrum, &amount, &meters, &speed, &spPrev, &spNext, &syncStrip, &trigBox, &lock, &thresh,
                                                                 &limOn, &ceilChip, &smoothChip, &offsetChip, &offUnit })
             addAndMakeVisible(*c);
@@ -889,14 +906,14 @@ struct Content : public juce::Component
             knob[b].setRotaryParameters(juce::MathConstants<float>::pi * 1.2f, juce::MathConstants<float>::pi * 2.8f, true);
             knob[b].setColour(juce::Slider::rotarySliderFillColourId, bandCol(b));
             addAndMakeVisible(knob[b]); knobAtt[b] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, ids[b], knob[b]);
-            knob[b].setTextValueSuffix(" %"); knob[b].setNumDecimalPlacesToDisplay(0);
+            knob[b].setNumDecimalPlacesToDisplay(0);
             solo[b] = std::make_unique<SoloBtn>(par(p, "solo"), b); addAndMakeVisible(*solo[b]);
         }
         amount.setSliderStyle(juce::Slider::RotaryVerticalDrag); amount.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 90, 24);
         amount.setRotaryParameters(juce::MathConstants<float>::pi * 1.2f, juce::MathConstants<float>::pi * 2.8f, true);
         amount.setColour(juce::Slider::rotarySliderFillColourId, catui::SodaPop::orange()); amount.setColour(juce::Slider::textBoxTextColourId, juce::Colours::white);
         amountAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "amount", amount);
-        amount.setTextValueSuffix(" %"); amount.setNumDecimalPlacesToDisplay(0);
+        amount.setNumDecimalPlacesToDisplay(0);
         trigBox.addItemList({ "Repeat", "Input hit" }, 1); trigAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(p.apvts, "trigger", trigBox);
         {   // six drive stages and Loudness
             static const char* dids[7] = { "dtube", "dtape", "dsoft", "ddrive", "dtrans", "dfuzz", "loud" };
@@ -907,7 +924,7 @@ struct Content : public juce::Component
                 kb.setRotaryParameters(juce::MathConstants<float>::pi * 1.2f, juce::MathConstants<float>::pi * 2.8f, true);
                 kb.setColour(juce::Slider::rotarySliderFillColourId, dcol[k]); addAndMakeVisible(kb);
                 dknobAtt[k] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, dids[k], kb);
-                kb.setTextValueSuffix(" %"); kb.setNumDecimalPlacesToDisplay(0);
+                kb.setNumDecimalPlacesToDisplay(0);
                 kb.setDoubleClickReturnValue(true, 0.0);   // double click: back to 0 %
             }
         }
@@ -938,6 +955,7 @@ struct Content : public juce::Component
         tipsBtn.setClickingTogglesState(true); tipsBtn.setToggleState(p.tipsOn(), juce::dontSendNotification);
         tipsBtn.onClick = [this] { proc.setTipsOn(tipsBtn.getToggleState()); applyTips(); };
         menuBtn.onClick = [this] { showMenu(); };
+        gearBtn.onClick = [this] { showSettings(); };
         sizeBtn.onClick = [this] { ed.setSize(kBaseW, kBaseH); };
         trigBox.onChange();
         setTips();
@@ -973,6 +991,26 @@ struct Content : public juce::Component
         w->enterModalState(true, juce::ModalCallbackFunction::create([self, w](int r)
         { if (r == 1 && self != nullptr) { if (self->proc.saveUserPreset(w->getTextEditorContents("name"))) self->rebuildPresets(); } }), true);
     }
+    void showSettings()
+    {
+#ifdef JucePlugin_VersionString
+        const juce::String ver = JucePlugin_VersionString;
+#else
+        const juce::String ver = "?";
+#endif
+        juce::PopupMenu m;
+        m.addItem(100, "Studio 87 Scaredy Cat v" + ver, false);
+        m.addSeparator();
+        m.addItem(1, "Open GitHub page"); m.addItem(2, "Open releases page");
+        m.addItem(3, "Info bubbles", true, proc.tipsOn());
+        m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&gearBtn), [this](int r)
+        {
+            const juce::String url("https://github.com/SpeakingColors/scaredy-cat");
+            if (r == 1) juce::URL(url).launchInDefaultBrowser();
+            else if (r == 2) juce::URL(url + "/releases").launchInDefaultBrowser();
+            else if (r == 3) { proc.setTipsOn(! proc.tipsOn()); tipsBtn.setToggleState(proc.tipsOn(), juce::dontSendNotification); applyTips(); }
+        });
+    }
     void showMenu()
     {
         juce::PopupMenu m;
@@ -998,7 +1036,7 @@ struct Content : public juce::Component
     {
         tip(power, "Power. Off is an exact bypass: the sound passes untouched.");
         tip(prevBtn, "Previous preset."); tip(nextBtn, "Next preset."); tip(presetBox, "Factory presets, then your own (Save).");
-        tip(saveBtn, "Save the current settings and the three envelopes as your own preset."); tip(tipsBtn, "Turn these hover tips on or off."); tip(menuBtn, "More options."); tip(sizeBtn, "Back to the normal window size (100 %). You can also drag any edge or corner of the window.");
+        tip(saveBtn, "Save the current settings and the three envelopes as your own preset."); tip(tipsBtn, "Turn these hover tips on or off."); tip(menuBtn, "More options."); tip(gearBtn, "Settings: version, link to the GitHub page for new versions"); tip(sizeBtn, "Back to the normal window size (100 %). You can also drag any edge or corner of the window.");
         tip(multi, "Multiband on: three bands with their own envelopes. Off: one envelope for everything (the middle lane).");
         tip(slope, "How steep the split between the bands is, in dB per octave."); tip(cross, "The three bands. Drag the white lines (arrows) to move the crossovers, double click a line to reset it.");
         for (int b = 0; b < 3; ++b) { tip(knob[b], juce::String("How much of the ") + (b == 0 ? "low" : b == 1 ? "mid" : "high") + " band envelope is applied. 0 % leaves that band alone."); tip(*solo[b], "Solo: listen to this band only."); }
@@ -1027,7 +1065,7 @@ struct Content : public juce::Component
     void resized() override
     {
         power.setBounds(342, 12, 62, 30); prevBtn.setBounds(414, 12, 28, 30); presetBox.setBounds(446, 12, 250, 30); nextBtn.setBounds(700, 12, 28, 30); saveBtn.setBounds(740, 12, 56, 30);
-        sizeBtn.setBounds(930, 12, 56, 30); tipsBtn.setBounds(992, 12, 34, 30); menuBtn.setBounds(1032, 12, 60, 30);
+        sizeBtn.setBounds(930, 12, 56, 30); tipsBtn.setBounds(992, 12, 34, 30); menuBtn.setBounds(1032, 12, 60, 30); gearBtn.setBounds(1098, 12, 30, 30);
         // left panel
         multi.setBounds(120, 70, 44, 24); slope.setBounds(82, 104, 124, 26); cross.setBounds(28, 138, 234, 132);
         for (int b = 0; b < 3; ++b) { const int x = 28 + b * 81; knob[b].setBounds(x, 316, 72, 84); solo[b]->setBounds(x + 24, 402, 24, 20); }
@@ -1048,7 +1086,7 @@ struct Content : public juce::Component
         trigBox.setBounds(352, 672 + by, 90, 30); lock.setBounds(446, 672 + by, 30, 30); thresh.setBounds(480, 672 + by, 82, 30);
         scTrig.setBounds(582, 674 + by, 146, 26);
         limOn.setBounds(784, 672 + by, 32, 30); ceilChip.setBounds(818, 670 + by, 58, 34);
-        smoothChip.setBounds(926, 670 + by, 34, 34); offsetChip.setBounds(1020, 670 + by, 44, 34); offUnit.setBounds(1068, 674 + by, 50, 26);
+        smoothChip.setBounds(926, 670 + by, 34, 34); offsetChip.setBounds(1008, 670 + by, 42, 34); offUnit.setBounds(1054, 674 + by, 60, 26);
     }
 
     void paint(juce::Graphics& g) override
@@ -1112,6 +1150,7 @@ ScaredyEditor::ScaredyEditor(Scaredy& p) : AudioProcessorEditor(&p)
     impl = std::make_unique<Impl>(*this, p);
     setLookAndFeel(&impl->laf);
     addAndMakeVisible(impl->content);
+    sendLookAndFeelChange();
     setResizable(true, false);   // every edge and corner (the border below), fixed aspect, 60 % to 200 %
     setResizeLimits(kMinW, (int) std::lround((double) kMinW * kBaseH / kBaseW), kMaxW, (int) std::lround((double) kMaxW * kBaseH / kBaseW));
     if (auto* c = getConstrainer()) c->setFixedAspectRatio((double) kBaseW / (double) kBaseH);
