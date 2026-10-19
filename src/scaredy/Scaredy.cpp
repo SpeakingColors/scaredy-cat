@@ -13,8 +13,8 @@ std::vector<catfx::KnobSpec> makeKnobSpecs()
         { "amtlo", "Low", " %", 0.f, 100.f, 100.f, 0.f, "How much of the low band envelope is applied (0 % leaves the low band alone)." },
         { "amtmid", "Mid", " %", 0.f, 100.f, 100.f, 0.f, "How much of the mid band envelope is applied." },
         { "amthi", "High", " %", 0.f, 100.f, 100.f, 0.f, "How much of the high band envelope is applied." },
-        { "xlo", "Low crossover", " Hz", 40.f, 400.f, 122.2659f, 122.2659f, "Where the low band ends. Drag the line in the crossover graph or the spectrum." },
-        { "xhi", "High crossover", " Hz", 800.f, 8000.f, 1976.9132f, 1976.9132f, "Where the high band starts." },
+        { "xlo", "Low crossover", " Hz", 40.f, 400.f, 160.f, 160.f, "Where the low band ends. Drag the line in the crossover graph or the spectrum." },
+        { "xhi", "High crossover", " Hz", 800.f, 8000.f, 2800.f, 2800.f, "Where the high band starts." },
         { "hz", "Speed (Hz)", " Hz", 0.05f, 30.f, 2.f, 2.f, "Speed in cycles per second when Sync is off." },
         { "swing", "Swing", " %", 0.f, 100.f, 0.f, 0.f, "Delays the second half of every cycle for a swung feel." },
         { "smooth", "Smooth", " %", 0.f, 100.f, 4.f, 0.f, "Rounds the envelope edges so sharp steps do not click. Higher is softer." },
@@ -232,7 +232,7 @@ struct FP { const char* name; std::vector<std::pair<const char*, float>> v; int 
 const std::vector<FP>& fps()
 {
     static const std::vector<FP> f {
-        { "Default", { { "xlo", 122.2659f }, { "xhi", 1976.9132f } }, { 0, 0, 0 }, { 0.f, 0.f, 0.f } },   // curves come from defaultCurve() (the user's Default 2)
+        { "Default", { { "xlo", 160.f }, { "xhi", 2800.f } }, { 0, 0, 0 }, { 0.f, 0.f, 0.f } },   // curves come from defaultCurve() (the user's Default 2)
         { "Hardstyle kick pump", { { "amount", 100 }, { "speed", 3 }, { "slope", 2 }, { "smooth", 3 }, { "dtube", 12 } }, { 0, 0, 0 }, { 0.f, 0.05f, 0.4f } },
         { "Purr kick pump", { { "amount", 100 }, { "speed", 3 }, { "slope", 2 }, { "smooth", 3 }, { "ddrive", 25 }, { "dtrans", 18 }, { "loud", 25 } }, { 0, 0, 0 }, { 0.f, 0.05f, 0.4f } },
         { "Nasty chop", { { "amount", 100 }, { "speed", 4 }, { "smooth", 4 }, { "dfuzz", 45 }, { "loud", 35 } }, { 1, 1, 1 }, { 0.f, 0.f, 0.15f } },

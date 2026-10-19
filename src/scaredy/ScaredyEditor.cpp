@@ -959,7 +959,7 @@ struct Content : public juce::Component
         sizeBtn.onClick = [this] { ed.setSize(kBaseW, kBaseH); };
         trigBox.onChange();
         setTips();
-        gate.onFrame = [this] { spectrum.analyse(); env.repaint(); spectrum.repaint(); meters.repaint(); repaint(878, 270, 250, 40); };
+        gate.onFrame = [this] { spectrum.analyse(); env.repaint(); spectrum.repaint(); cross.repaint(); meters.repaint(); repaint(878, 270, 250, 40); repaint(28, 254, 234, 24); };
         gate.onChange = [this](bool active) { proc.viewActive.store(active); };
         gate.start(30);
         proc.viewActive.store(true);
@@ -1067,7 +1067,7 @@ struct Content : public juce::Component
         power.setBounds(342, 12, 62, 30); prevBtn.setBounds(414, 12, 28, 30); presetBox.setBounds(446, 12, 250, 30); nextBtn.setBounds(700, 12, 28, 30); saveBtn.setBounds(740, 12, 56, 30);
         sizeBtn.setBounds(930, 12, 56, 30); tipsBtn.setBounds(992, 12, 34, 30); menuBtn.setBounds(1032, 12, 60, 30); gearBtn.setBounds(1098, 12, 30, 30);
         // left panel
-        multi.setBounds(120, 70, 44, 24); slope.setBounds(82, 104, 124, 26); cross.setBounds(28, 138, 234, 132);
+        multi.setBounds(120, 70, 44, 24); slope.setBounds(82, 104, 124, 26); cross.setBounds(28, 138, 234, 116);
         for (int b = 0; b < 3; ++b) { const int x = 28 + b * 81; knob[b].setBounds(x, 316, 72, 84); solo[b]->setBounds(x + 24, 402, 24, 20); }
         linkedStrip.setBounds(28, 432, 234, 26); linear.setBounds(30, 470, 220, 24);
         // middle
@@ -1105,6 +1105,12 @@ struct Content : public juce::Component
         g.setColour(Colours::dim()); g.setFont(juce::FontOptions(11.5f));
         g.drawFittedText("Dashed: the original sound.\nFill: what the ducking removes.\nLevel view: dB lost per band.\nThe sidechain only triggers.", 34, 548, 226, 78, juce::Justification::topLeft, 6);
         g.drawText("Envelopes", 28, 296, 1, 1, juce::Justification::left);
+        {   // the two crossover frequencies, written under the small graph
+            auto hz = [](float f) { return f >= 1000.f ? juce::String(f / 1000.f, 2) + " kHz" : juce::String((int) std::lround(f)) + " Hz"; };
+            g.setFont(juce::FontOptions(11.5f, juce::Font::bold));
+            g.setColour(juce::Colours::white); g.drawText("Low/Mid " + hz(proc.get("xlo")), 28, 256, 117, 20, juce::Justification::centred);
+            g.drawText("Mid/High " + hz(proc.get("xhi")), 145, 256, 117, 20, juce::Justification::centred);
+        }
         g.setColour(title()); g.setFont(juce::FontOptions(12.5f, juce::Font::bold)); g.drawText("BAND SPECTRUM", 292, 488, 200, 18, juce::Justification::left);
         g.setColour(Colours::dim()); g.setFont(juce::FontOptions(10.5f)); g.drawText("dashed: original   filled: removed", 500, 488, 220, 18, juce::Justification::right);
         for (int b = 0; b < 3; ++b)
