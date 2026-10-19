@@ -1105,11 +1105,17 @@ struct Content : public juce::Component
         g.setColour(Colours::dim()); g.setFont(juce::FontOptions(11.5f));
         g.drawFittedText("Dashed: the original sound.\nFill: what the ducking removes.\nLevel view: dB lost per band.\nThe sidechain only triggers.", 34, 548, 226, 78, juce::Justification::topLeft, 6);
         g.drawText("Envelopes", 28, 296, 1, 1, juce::Justification::left);
-        {   // the two crossover frequencies, written under the small graph
-            auto hz = [](float f) { return f >= 1000.f ? juce::String(f / 1000.f, 2) + " kHz" : juce::String((int) std::lround(f)) + " Hz"; };
-            g.setFont(juce::FontOptions(11.5f, juce::Font::bold));
-            g.setColour(juce::Colours::white); g.drawText("Low/Mid " + hz(proc.get("xlo")), 28, 256, 117, 20, juce::Justification::centred);
-            g.drawText("Mid/High " + hz(proc.get("xhi")), 145, 256, 117, 20, juce::Justification::centred);
+        {   // the two crossover frequencies, as two small value chips under the small graph
+            auto hz = [](float f) { return f >= 1000.f ? juce::String(juce::String(f / 1000.f, 2).trimCharactersAtEnd("0").trimCharactersAtEnd(".")) + " kHz" : juce::String((int) std::lround(f)) + " Hz"; };
+            auto chip = [&](juce::Rectangle<float> r, const juce::String& name, const juce::String& val)
+            {
+                g.setColour(juce::Colour(0xff0b0b20)); g.fillRoundedRectangle(r, 6.f);
+                g.setColour(juce::Colour(0xff3a3a6a)); g.drawRoundedRectangle(r, 6.f, 1.f);
+                g.setColour(juce::Colour(0xff9aa0c8)); g.setFont(juce::FontOptions(10.5f)); g.drawText(name, r.reduced(6.f, 0.f).toNearestInt(), juce::Justification::centredLeft);
+                g.setColour(juce::Colour(0xff00e5c0)); g.setFont(juce::FontOptions(11.5f, juce::Font::bold)); g.drawText(val, r.reduced(6.f, 0.f).toNearestInt(), juce::Justification::centredRight);
+            };
+            chip({ 28.f, 257.f, 114.f, 20.f }, "Low | Mid", hz(proc.get("xlo")));
+            chip({ 148.f, 257.f, 114.f, 20.f }, "Mid | High", hz(proc.get("xhi")));
         }
         g.setColour(title()); g.setFont(juce::FontOptions(12.5f, juce::Font::bold)); g.drawText("BAND SPECTRUM", 292, 488, 200, 18, juce::Justification::left);
         g.setColour(Colours::dim()); g.setFont(juce::FontOptions(10.5f)); g.drawText("dashed: original   filled: removed", 500, 488, 220, 18, juce::Justification::right);
