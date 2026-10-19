@@ -111,7 +111,7 @@ inline Curve shapeCurve(int id, float lo = 0.f, unsigned seed = 1)
     Curve c;
     switch (id)
     {
-        case 0: c = { { 0, lo, 0.5f }, { 0.45f, 1, 0 }, { 0.97f, 1, 0 }, { 1, lo, 0 } }; break;   // curved rise, hold, short drop back to the start level: the loop joins with no jump
+        case 0: c = { { 0, lo, 0.5f }, { 0.4375f, 1, 0 }, { 0.9701f, 1, 0 }, { 1, lo, 0 } }; break;   // curved rise, hold, short drop back to the start level: the loop joins with no jump
         case 1: c = { { 0, lo, 0 }, { 0.5f, lo, 0 }, { 0.504f, 1, 0 }, { 1, 1, 0 } }; break;
         case 2: c = { { 0, lo, -0.6f }, { 1, 1, 0 } }; break;
         case 3: c = { { 0, lo, 0 }, { 1, 1, 0 } }; break;
