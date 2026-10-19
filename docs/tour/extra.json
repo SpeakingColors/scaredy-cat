@@ -1,0 +1,22 @@
+{
+ "scaredy": {
+  "flow": "Input > Drive > band split (low, mid, high; 12, 24 or 48 dB per octave, or linear phase) > one drawn volume envelope per band > Amount blend > lookahead limiter > hidden soft clipper > output. Power off or Amount 0 % is an exact bypass (delayed by the reported latency).",
+  "names": {},
+  "displays": {
+   "A": "Crossover graph. Horizontal: frequency (log, 20 Hz to 20 kHz). Vertical: level of each band in dB (0 to -36). Orange is the low band, purple the mid band, mint the high band. The two white lines are the crossover points (Low about 120 Hz, High about 2.4 kHz by default): drag them. The Slope strip changes how steep the bands overlap.",
+   "B": "The three envelope lanes: HIGH on top, MID in the middle, LOW at the bottom. Each lane is the volume of that band over one cycle (left to right). The scale on the left is in dB (top is 0 dB, no change; the lane is drawn linear in gain). Vertical grid lines follow the Grid setting. The grey bars behind the curve are the input folded over one cycle, so you see where the kick hits. The pink line is the playhead; the number on the right of each lane is the gain reduction of that band right now. Drag round points, double click to add one, right click to delete, Alt and drag to bend a segment.",
+   "C": "Band spectrum. Spectrum view: horizontal frequency (log), vertical level in dB; the dashed white line is the sound before ducking and the coloured fill is the sound after, split in the three band colours at the crossover lines (drag them here too). Level view: grey bars are each band's peak level before the ducking and the coloured bars after, in dB.",
+   "D": "Meters. L and R: output peak in dB. The three bars on the right (L, M, H): gain reduction of the low, mid and high band, growing downward, 0 to -24 dB. Above them, OUT is the output peak and GR the biggest gain reduction at this moment."
+  },
+  "deep": [
+   "AMOUNT 0 % (or Power off) is an exact bit-exact bypass at the reported latency. 100 % is the full depth you drew: a drawn envelope that goes to the bottom ducks about 64 dB; 50 % ducks about 6 dB. A flat envelope leaves the tone within 0.25 dB.",
+   "Speed: in Sync mode the cycle is a note length of the host tempo (2 bars down to 1/32, triplets and dotted values); in Hz mode it runs free from 0.05 to 30 Hz. Trigger Input hit restarts the envelope on every loud hit (threshold in dB, 50 ms hold-off), no tempo needed. The test page plays at 150 BPM.",
+   "Envelopes are curves of up to 128 points with a bend value per segment. Smooth rounds the edges (about 0.3 ms at 0 % up to about 20 ms at 100 %). Swing delays the second half of each cycle. Offset moves the whole envelope in ms or samples.",
+   "Band split: 12, 24 or 48 dB per octave (Linkwitz-Riley style, bands add back flat). Linear phase uses FIR filters of 513, 1025 or 2049 taps: no phase shift between bands, softer low crossover, more latency.",
+   "Latency is reported to the host and is exact: 64 samples plus the 1.5 ms limiter lookahead (131 samples at 44.1 kHz), and for linear phase plus 256, 512 or 1024 samples (392, 648 and 1160 samples at 48 kHz in total).",
+   "Drive (Tube, Tape, Soft) runs 2x oversampled before the ducking and keeps the level about the same. The limiter is a lookahead limiter with a ceiling you set; behind it sits a hidden soft clipper (2x oversampled) so peaks stay at or under 0.97.",
+   "Presets: 11 factory presets (each carries the three envelopes). Your own presets save the settings and all three envelopes to the Studio 87 presets folder. The Lock button blocks edits to the envelopes.",
+   "Knob and strip changes reach the sound within one audio buffer; Amount, band amounts and Drive are ramped over about 15 ms so they never click."
+  ]
+ }
+}

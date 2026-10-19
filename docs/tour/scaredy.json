@@ -1,0 +1,728 @@
+{
+ "key": "scaredy",
+ "preset": "Hardstyle kick pump",
+ "box": [
+  100,
+  207.78125,
+  1100,
+  758.296875
+ ],
+ "top": [
+  {
+   "n": 1,
+   "name": "Power",
+   "tip": "Power. Off is an exact bypass: the sound passes untouched.",
+   "box": [
+    736.390625,
+    224.984375,
+    65.65625,
+    33.59375
+   ]
+  },
+  {
+   "n": 2,
+   "name": "Previous preset",
+   "tip": "Previous preset.",
+   "box": [
+    810.046875,
+    224.984375,
+    33.265625,
+    33.59375
+   ]
+  },
+  {
+   "n": 3,
+   "name": "Next preset",
+   "tip": "Next preset.",
+   "box": [
+    851.3125,
+    224.984375,
+    33.265625,
+    33.59375
+   ]
+  },
+  {
+   "n": 4,
+   "name": "Preset menu",
+   "tip": "Factory presets, then your own (Save).",
+   "box": [
+    892.578125,
+    225.28125,
+    170,
+    33
+   ]
+  },
+  {
+   "n": 5,
+   "name": "Save",
+   "tip": "Save the current settings and the three envelopes as your own preset (opens the preset box under the plugin).",
+   "box": [
+    1070.578125,
+    224.984375,
+    56.40625,
+    33.59375
+   ]
+  },
+  {
+   "n": 6,
+   "name": "Info bubbles (i)",
+   "tip": "Turn these hover tips on or off.",
+   "box": [
+    1134.984375,
+    226.78125,
+    30,
+    30
+   ]
+  }
+ ],
+ "items": [
+  {
+   "title": "Bands and sidechain",
+   "wide": false,
+   "box": [
+    135,
+    272.78125,
+    230,
+    590.90625
+   ],
+   "disp": {
+    "letter": "A",
+    "box": [
+     143,
+     374.5625,
+     214,
+     120
+    ]
+   },
+   "items": [
+    {
+     "n": 7,
+     "kind": "button",
+     "name": "Multiband",
+     "tip": "Multiband on: three bands with their own envelopes. Off: one envelope for everything (the middle lane).",
+     "value": "",
+     "box": [
+      143,
+      302.171875,
+      89.90625,
+      33.59375
+     ]
+    },
+    {
+     "n": 8,
+     "kind": "strip",
+     "name": "Slope (12, 24, 48 dB per octave)",
+     "tip": "How steep the split between the bands is, in dB per octave.",
+     "value": "",
+     "box": [
+      180.15625,
+      341.765625,
+      98.28125,
+      26.796875
+     ]
+    },
+    {
+     "n": 9,
+     "kind": "knob",
+     "name": "Low amount",
+     "tip": "How much of the low band envelope is applied. 0 % leaves that band alone.",
+     "value": "100 %",
+     "box": [
+      143,
+      521.953125,
+      67.328125,
+      80.375
+     ]
+    },
+    {
+     "n": 10,
+     "kind": "button",
+     "name": "Solo",
+     "tip": "Solo: listen to this band only.",
+     "value": "",
+     "box": [
+      164.65625,
+      604.328125,
+      24,
+      20
+     ]
+    },
+    {
+     "n": 11,
+     "kind": "knob",
+     "name": "Mid amount",
+     "tip": "How much of the mid band envelope is applied. 0 % leaves that band alone.",
+     "value": "100 %",
+     "box": [
+      216.328125,
+      521.953125,
+      67.328125,
+      80.375
+     ]
+    },
+    {
+     "n": 12,
+     "kind": "button",
+     "name": "Solo",
+     "tip": "Solo: listen to this band only.",
+     "value": "",
+     "box": [
+      237.984375,
+      604.328125,
+      24,
+      20
+     ]
+    },
+    {
+     "n": 13,
+     "kind": "knob",
+     "name": "High amount",
+     "tip": "How much of the high band envelope is applied. 0 % leaves that band alone.",
+     "value": "100 %",
+     "box": [
+      289.65625,
+      521.953125,
+      67.328125,
+      80.375
+     ]
+    },
+    {
+     "n": 14,
+     "kind": "button",
+     "name": "Solo",
+     "tip": "Solo: listen to this band only.",
+     "value": "",
+     "box": [
+      311.3125,
+      604.328125,
+      24,
+      20
+     ]
+    },
+    {
+     "n": 15,
+     "kind": "button",
+     "name": "Envelopes Linked or Unlinked",
+     "tip": "Linked: all three bands use the same envelope, edit one and all follow.",
+     "value": "",
+     "box": [
+      143,
+      630.328125,
+      214,
+      33.59375
+     ]
+    },
+    {
+     "n": 16,
+     "kind": "button",
+     "name": "Linear phase",
+     "tip": "Linear phase split: no phase shift between the bands. Adds latency (your host compensates) and a softer low crossover.",
+     "value": "",
+     "box": [
+      143,
+      669.921875,
+      214,
+      33.59375
+     ]
+    },
+    {
+     "n": 17,
+     "kind": "strip",
+     "name": "Sidechain display",
+     "tip": "What the dashed spectrum line shows: the input, the sidechain, or both.",
+     "value": "",
+     "box": [
+      151,
+      761.703125,
+      198,
+      26.796875
+     ]
+    },
+    {
+     "n": 18,
+     "kind": "button",
+     "name": "Sidechain triggers envelope",
+     "tip": "Hits on the sidechain input restart the envelope (pick a sidechain sound in the bar above).",
+     "value": "",
+     "box": [
+      151,
+      794.5,
+      198,
+      53.1875
+     ]
+    }
+   ],
+   "img": "scaredy_p1.png"
+  },
+  {
+   "title": "Envelope editor",
+   "wide": true,
+   "box": [
+    385,
+    280.78125,
+    590,
+    407.59375
+   ],
+   "disp": {
+    "letter": "B",
+    "box": [
+     385,
+     316.375,
+     590,
+     330
+    ]
+   },
+   "items": [
+    {
+     "n": 19,
+     "kind": "button",
+     "name": "Tool: select and move",
+     "tip": "Select and move points.",
+     "value": "",
+     "box": [
+      385,
+      281.578125,
+      28,
+      28
+     ]
+    },
+    {
+     "n": 20,
+     "kind": "button",
+     "name": "Tool: ramp up",
+     "tip": "Draw a ramp up: drag across the lane.",
+     "value": "",
+     "box": [
+      418,
+      281.578125,
+      28,
+      28
+     ]
+    },
+    {
+     "n": 21,
+     "kind": "button",
+     "name": "Tool: ramp down",
+     "tip": "Draw a ramp down: drag across the lane.",
+     "value": "",
+     "box": [
+      451,
+      281.578125,
+      28,
+      28
+     ]
+    },
+    {
+     "n": 22,
+     "kind": "button",
+     "name": "Tool: hold",
+     "tip": "Draw a flat hold: drag across the lane.",
+     "value": "",
+     "box": [
+      484,
+      281.578125,
+      28,
+      28
+     ]
+    },
+    {
+     "n": 23,
+     "kind": "button",
+     "name": "Tool: step",
+     "tip": "Draw a step: hold the level, then jump.",
+     "value": "",
+     "box": [
+      517,
+      281.578125,
+      28,
+      28
+     ]
+    },
+    {
+     "n": 24,
+     "kind": "button",
+     "name": "Tool: delete or reset lane",
+     "tip": "Delete the selected points (nothing selected: reset the lane).",
+     "value": "",
+     "box": [
+      550,
+      281.578125,
+      28,
+      28
+     ]
+    },
+    {
+     "n": 25,
+     "kind": "button",
+     "name": "Tool: select all",
+     "tip": "Select all points in the lane.",
+     "value": "",
+     "box": [
+      583,
+      281.578125,
+      28,
+      28
+     ]
+    },
+    {
+     "n": 26,
+     "kind": "button",
+     "name": "Tool: move left",
+     "tip": "Move the selection (or the whole lane) one grid step left.",
+     "value": "",
+     "box": [
+      616,
+      281.578125,
+      28,
+      28
+     ]
+    },
+    {
+     "n": 27,
+     "kind": "button",
+     "name": "Tool: move right",
+     "tip": "Move the selection (or the whole lane) one grid step right.",
+     "value": "",
+     "box": [
+      649,
+      281.578125,
+      28,
+      28
+     ]
+    },
+    {
+     "n": 28,
+     "kind": "button",
+     "name": "Snap",
+     "tip": "Points snap to the grid while you drag (hold Ctrl to move freely). Click to switch.",
+     "value": "",
+     "box": [
+      735.875,
+      280.78125,
+      72.296875,
+      29.59375
+     ]
+    },
+    {
+     "n": 29,
+     "kind": "button",
+     "name": "Grid",
+     "tip": "Grid size for editing. Click to change.",
+     "value": "",
+     "box": [
+      813.171875,
+      280.78125,
+      74.953125,
+      29.59375
+     ]
+    },
+    {
+     "n": 30,
+     "kind": "drag value",
+     "name": "Swing",
+     "tip": "Delays the second half of each cycle for a swung feel. Drag up or down.",
+     "value": "",
+     "box": [
+      893.125,
+      283.171875,
+      81.875,
+      24.796875
+     ]
+    },
+    {
+     "n": 31,
+     "kind": "buttons",
+     "name": "Shape buttons and More",
+     "tip": "Quick shapes for the selected lane. More has trance gates, tremolo, random steps and tools.",
+     "value": "",
+     "box": [
+      385,
+      652.375,
+      590,
+      36
+     ]
+    }
+   ],
+   "img": "scaredy_p2.png"
+  },
+  {
+   "title": "Band spectrum",
+   "wide": true,
+   "box": [
+    385,
+    694.375,
+    590,
+    142.796875
+   ],
+   "disp": {
+    "letter": "C",
+    "box": [
+     385,
+     727.171875,
+     590,
+     110
+    ]
+   },
+   "items": [
+    {
+     "n": 32,
+     "kind": "strip",
+     "name": "Spectrum or Level view",
+     "tip": "Spectrum: the sound by frequency, dashed before the ducking and filled after. Level: peak level of each band.",
+     "value": "",
+     "box": [
+      852.078125,
+      694.375,
+      122.921875,
+      26.796875
+     ]
+    }
+   ],
+   "img": "scaredy_p3.png"
+  },
+  {
+   "title": "Amount and meters",
+   "wide": false,
+   "box": [
+    995,
+    272.78125,
+    170,
+    590.90625
+   ],
+   "disp": {
+    "letter": "D",
+    "box": [
+     1003,
+     461.5625,
+     154,
+     300
+    ]
+   },
+   "items": [
+    {
+     "n": 33,
+     "kind": "knob",
+     "name": "AMOUNT",
+     "tip": "AMOUNT: how deep the envelopes cut. 0 % is an exact bypass, 100 % is the full depth you drew.",
+     "value": "100 %",
+     "box": [
+      1003,
+      302.171875,
+      154,
+      130.59375
+     ]
+    }
+   ],
+   "img": "scaredy_p4.png"
+  },
+  {
+   "title": "Bottom bar",
+   "wide": true,
+   "box": [
+    135,
+    873.6875,
+    1030,
+    79.390625
+   ],
+   "disp": null,
+   "items": [
+    {
+     "n": 34,
+     "kind": "button",
+     "name": "Speed slower",
+     "tip": "Slower.",
+     "value": "",
+     "box": [
+      179.546875,
+      884.78125,
+      31.28125,
+      29.390625
+     ]
+    },
+    {
+     "n": 35,
+     "kind": "button",
+     "name": "Speed (note length)",
+     "tip": "How fast the envelope repeats: a note length in Sync mode, or Hz.",
+     "value": "",
+     "box": [
+      216.828125,
+      884.78125,
+      70,
+      29.390625
+     ]
+    },
+    {
+     "n": 36,
+     "kind": "button",
+     "name": "Speed faster",
+     "tip": "Faster.",
+     "value": "",
+     "box": [
+      292.828125,
+      884.78125,
+      31.28125,
+      29.390625
+     ]
+    },
+    {
+     "n": 37,
+     "kind": "drag value",
+     "name": "Speed in Hz (only when Sync is off)",
+     "tip": "Speed in cycles per second when Sync is off. Drag up or down.",
+     "value": "",
+     "box": [
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "n": 38,
+     "kind": "strip",
+     "name": "Sync or Hz",
+     "tip": "Sync follows the host tempo (150 BPM here). Hz runs at a fixed speed.",
+     "value": "",
+     "box": [
+      330.109375,
+      886.078125,
+      81.9375,
+      26.796875
+     ]
+    },
+    {
+     "n": 39,
+     "kind": "strip",
+     "name": "Trigger",
+     "tip": "Repeat: loops with the tempo. Input hit: every loud hit restarts the envelope (no tempo needed).",
+     "value": "",
+     "box": [
+      479.90625,
+      886.078125,
+      123.65625,
+      26.796875
+     ]
+    },
+    {
+     "n": 40,
+     "kind": "drag value",
+     "name": "Hit threshold (only for Input hit)",
+     "tip": "How loud a hit must be to restart the envelope. Drag up or down.",
+     "value": "",
+     "box": [
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "n": 41,
+     "kind": "button",
+     "name": "Lock",
+     "tip": "Lock the envelopes so a stray click cannot change them.",
+     "value": "",
+     "box": [
+      613.5625,
+      882.6875,
+      56,
+      33.59375
+     ]
+    },
+    {
+     "n": 42,
+     "kind": "drag value",
+     "name": "Drive",
+     "tip": "Smooth saturation before the ducking (oversampled). The level stays about the same, the sound gets thicker. Drag up or down.",
+     "value": "",
+     "box": [
+      721.046875,
+      887.078125,
+      54.28125,
+      24.796875
+     ]
+    },
+    {
+     "n": 43,
+     "kind": "strip",
+     "name": "Drive type",
+     "tip": "Drive character: Tube is warm, Tape is gentle, Soft is round.",
+     "value": "",
+     "box": [
+      781.328125,
+      886.078125,
+      135.125,
+      26.796875
+     ]
+    },
+    {
+     "n": 44,
+     "kind": "button",
+     "name": "Limiter on",
+     "tip": "Lookahead limiter after the ducking.",
+     "value": "",
+     "box": [
+      964.921875,
+      884.78125,
+      38.921875,
+      29.390625
+     ]
+    },
+    {
+     "n": 45,
+     "kind": "drag value",
+     "name": "Limit ceiling",
+     "tip": "Highest level the limiter lets through. Drag up or down.",
+     "value": "",
+     "box": [
+      1009.84375,
+      887.078125,
+      72.5625,
+      24.796875
+     ]
+    },
+    {
+     "n": 46,
+     "kind": "drag value",
+     "name": "Smooth",
+     "tip": "Rounds the envelope edges so steps do not click. Drag up or down.",
+     "value": "",
+     "box": [
+      193.734375,
+      927.28125,
+      48.703125,
+      24.796875
+     ]
+    },
+    {
+     "n": 47,
+     "kind": "drag value",
+     "name": "Offset",
+     "tip": "Moves the envelope later (+) or earlier (-) so the pump lines up with your kick.",
+     "value": "",
+     "box": [
+      304.578125,
+      927.28125,
+      44.984375,
+      24.796875
+     ]
+    },
+    {
+     "n": 48,
+     "kind": "strip",
+     "name": "Offset unit",
+     "tip": "Offset in milliseconds or in samples.",
+     "value": "",
+     "box": [
+      355.5625,
+      926.28125,
+      98.734375,
+      26.796875
+     ]
+    }
+   ],
+   "img": "scaredy_p5.png"
+  }
+ ]
+}
