@@ -10,6 +10,7 @@ public:
     ~ScaredyEditor() override;
     void paint(juce::Graphics&) override;
     void resized() override;
+    void mouseDoubleClick(const juce::MouseEvent&) override;   // on a wood cheek: back to 100%
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;

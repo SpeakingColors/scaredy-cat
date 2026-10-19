@@ -1190,6 +1190,11 @@ void ScaredyEditor::paint(juce::Graphics& g)
     g.fillAll(Colours::panel());
     catui::drawWoodCheeks(g, getLocalBounds(), (int) std::lround(kCheek * (double) getWidth() / kBaseW));
 }
+void ScaredyEditor::mouseDoubleClick(const juce::MouseEvent& e)
+{
+    const int ck = (int) std::lround(kCheek * (double) getWidth() / kBaseW);
+    if (e.x < ck || e.x >= getWidth() - ck) setSize(kBaseW, kBaseH);
+}
 void ScaredyEditor::resized()
 {
     if (impl == nullptr) return;
