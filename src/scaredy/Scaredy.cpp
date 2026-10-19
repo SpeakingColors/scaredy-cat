@@ -18,7 +18,13 @@ std::vector<catfx::KnobSpec> makeKnobSpecs()
         { "hz", "Speed (Hz)", " Hz", 0.05f, 30.f, 2.f, 2.f, "Speed in cycles per second when Sync is off." },
         { "swing", "Swing", " %", 0.f, 100.f, 0.f, 0.f, "Delays the second half of every cycle for a swung feel." },
         { "smooth", "Smooth", " %", 0.f, 100.f, 4.f, 0.f, "Rounds the envelope edges so sharp steps do not click. Higher is softer." },
-        { "drive", "Drive", " %", 0.f, 100.f, 0.f, 0.f, "Smooth saturation before the ducking (oversampled). The level stays about the same, the sound gets thicker." },
+        { "dtube", "Tube", " %", 0.f, 100.f, 0.f, 0.f, "Tube drive: warm, even harmonics. Mix it with the other five. The level stays about the same." },
+        { "dtape", "Tape", " %", 0.f, 100.f, 0.f, 0.f, "Tape drive: gentle, soft top end." },
+        { "dsoft", "Soft", " %", 0.f, 100.f, 0.f, 0.f, "Soft drive: smooth and round." },
+        { "ddrive", "Drive", " %", 0.f, 100.f, 0.f, 0.f, "PurrOne Drive: a tanh push, gets nasty above 80 %." },
+        { "dtrans", "Transistor", " %", 0.f, 100.f, 0.f, 0.f, "PurrOne Transistor: lopsided, adds even harmonics, gets nasty above 80 %." },
+        { "dfuzz", "Fuzz", " %", 0.f, 100.f, 0.f, 0.f, "PurrOne Fuzz: biased clip with octave-up growl, gets nasty above 80 %." },
+        { "loud", "Loudness", " %", 0.f, 100.f, 0.f, 0.f, "Makes it louder without pumping: a smooth opto leveller (LA-2A style) and a hidden soft clipper before the limiter. 0 % is off, the knob is the dry/wet." },
         { "limceil", "Limit ceiling", " dB", -12.f, 0.f, -0.3f, 0.f, "Highest level the limiter lets through." },
         { "offset", "Offset", "", -100.f, 100.f, 0.f, 0.f, "Moves the envelope later (positive) or earlier (negative), in ms or samples. Use it to line the pump up with the kick." },
         { "thresh", "Hit threshold", " dB", -60.f, 0.f, -24.f, 0.f, "How loud a hit must be to restart the envelope in the hit trigger modes." },
@@ -34,12 +40,10 @@ std::vector<catfx::ChoiceSpec> makeChoiceSpecs()
         { "slope", "Slope", { "12", "24", "48" }, 1, "Steepness of the band split in dB per octave." },
         { "multiband", "Multiband", { "Off", "On" }, 1, "On: three bands with their own envelopes. Off: one envelope for the whole sound." },
         { "linear", "Linear phase", { "Off", "On" }, 0, "Splits the bands without phase shift. Adds latency (reported to your host) and a softer low crossover." },
-        { "drivetype", "Drive type", { "Tube", "Tape", "Soft" }, 0, "Character of the drive: Tube is warm and even, Tape is gentle, Soft is smooth and round." },
         { "limon", "Limiter", { "Off", "On" }, 1, "Lookahead limiter after the ducking." },
         { "offunit", "Offset unit", { "MS", "SAMPS" }, 0, "Offset in milliseconds or in samples." },
         { "linked", "Envelopes", { "Unlinked", "Linked" }, 0, "Linked: all three bands use the same envelope (edit one, all follow)." },
         { "solo", "Solo", { "Off", "Low", "Mid", "High" }, 0, "Listen to one band only." },
-        { "scdisp", "Display", { "Input", "Sidechain", "Both" }, 1, "What the dashed spectrum line shows: the input, the sidechain, or both." },
         { "sctrig", "Sidechain triggers", { "Off", "On" }, 0, "The sidechain input (if connected) restarts the envelope on every hit." },
         { "grid", "Grid", { "1/4", "1/8", "1/16", "1/32" }, 2, "Grid for editing the envelope." },
         { "snap", "Snap", { "Off", "On" }, 1, "Points snap to the grid while you drag." },
@@ -63,8 +67,8 @@ Scaredy::Scaredy() : catfx::FxBase("Scaredy Cat", makeKnobSpecs(), makeChoiceSpe
 {
     auto P = [this](const char* id) { return apvts.getRawParameterValue(id); };
     pAmount = P("amount"); pLo = P("amtlo"); pMid = P("amtmid"); pHi = P("amthi"); pXlo = P("xlo"); pXhi = P("xhi"); pHz = P("hz"); pSwing = P("swing");
-    pSmooth = P("smooth"); pDrive = P("drive"); pCeil = P("limceil"); pOffset = P("offset"); pThresh = P("thresh"); pSpeed = P("speed"); pSync = P("sync");
-    pTrig = P("trigger"); pSlope = P("slope"); pMulti = P("multiband"); pLinear = P("linear"); pDtype = P("drivetype"); pLimon = P("limon");
+    pSmooth = P("smooth"); pDTube = P("dtube"); pDTape = P("dtape"); pDSoft = P("dsoft"); pDDrive = P("ddrive"); pDTrans = P("dtrans"); pDFuzz = P("dfuzz"); pLoud = P("loud"); pCeil = P("limceil"); pOffset = P("offset"); pThresh = P("thresh"); pSpeed = P("speed"); pSync = P("sync");
+    pTrig = P("trigger"); pSlope = P("slope"); pMulti = P("multiband"); pLinear = P("linear"); pLimon = P("limon");
     pOffunit = P("offunit"); pLinked = P("linked"); pSolo = P("solo"); pSctrig = P("sctrig"); pPower = P("power");
     for (auto& r : ring) for (auto& v : r) v.store(0.f, std::memory_order_relaxed);
     for (int i = 0; i < 3; ++i) curves[(size_t) i] = defaultCurve(i);
@@ -88,7 +92,7 @@ Params Scaredy::readParams() const
     p.trigger = pTrig->load() > 0.5f ? 1 : 0; p.scTrigger = pSctrig->load() > 0.5f && hasSidechain; p.threshDb = pThresh->load();
     p.swing = pSwing->load(); p.smooth = pSmooth->load();
     p.offset = pOffset->load(); p.offsetSamples = pOffunit->load() > 0.5f;
-    p.drive = pDrive->load(); p.driveType = juce::jlimit(0, 2, (int) std::lround(pDtype->load()));
+    p.dTube = pDTube->load(); p.dTape = pDTape->load(); p.dSoft = pDSoft->load(); p.dDrive = pDDrive->load(); p.dTrans = pDTrans->load(); p.dFuzz = pDFuzz->load(); p.loud = pLoud->load();
     p.limOn = pLimon->load() > 0.5f; p.ceilDb = pCeil->load(); p.solo = juce::jlimit(0, 3, (int) std::lround(pSolo->load()));
     return p;
 }
@@ -190,6 +194,36 @@ void Scaredy::valueTreePropertyChanged(juce::ValueTree&, const juce::Identifier&
     if (id.toString().startsWith("env")) loadCurvesFromState();
 }
 
+// ---------- state migration (older versions had one Drive knob with a type, and a spectrum display choice) ----------
+namespace
+{
+void migrateXml(juce::XmlElement& x)
+{
+    juce::XmlElement* drive = nullptr; juce::XmlElement* type = nullptr; juce::XmlElement* disp = nullptr; bool hasNew = false;
+    for (auto* c : x.getChildIterator())
+    {
+        const auto id = c->getStringAttribute("id");
+        if (id == "drive") drive = c; else if (id == "drivetype") type = c; else if (id == "scdisp") disp = c;
+        else if (id == "dtube" || id == "dtape" || id == "dsoft") hasNew = true;
+    }
+    if (drive != nullptr && ! hasNew)
+    {
+        const double v = drive->getDoubleAttribute("value", 0.0); const int t = type != nullptr ? juce::jlimit(0, 2, (int) std::lround(type->getDoubleAttribute("value", 0.0))) : 0;
+        if (v > 0.0) { auto* n = x.createNewChildElement("PARAM"); n->setAttribute("id", t == 0 ? "dtube" : t == 1 ? "dtape" : "dsoft"); n->setAttribute("value", v); }
+    }
+    for (auto* c : { drive, type, disp }) if (c != nullptr) x.removeChildElement(c, true);
+}
+}
+void Scaredy::setStateInformation(const void* d, int size)
+{
+    if (auto xml = getXmlFromBinary(d, size))
+    {
+        migrateXml(*xml);
+        apvts.replaceState(juce::ValueTree::fromXml(*xml));
+        loadCurvesFromState();
+    }
+}
+
 // ---------- presets ----------
 namespace
 {
@@ -198,11 +232,13 @@ const std::vector<FP>& fps()
 {
     static const std::vector<FP> f {
         { "Default", {}, { 0, 0, 0 }, { 0.f, 0.1f, 0.45f } },
-        { "Hardstyle kick pump", { { "amount", 100 }, { "speed", 3 }, { "slope", 2 }, { "smooth", 3 }, { "drive", 12 }, { "drivetype", 0 } }, { 0, 0, 0 }, { 0.f, 0.05f, 0.4f } },
+        { "Hardstyle kick pump", { { "amount", 100 }, { "speed", 3 }, { "slope", 2 }, { "smooth", 3 }, { "dtube", 12 } }, { 0, 0, 0 }, { 0.f, 0.05f, 0.4f } },
+        { "Purr kick pump", { { "amount", 100 }, { "speed", 3 }, { "slope", 2 }, { "smooth", 3 }, { "ddrive", 25 }, { "dtrans", 18 }, { "loud", 25 } }, { 0, 0, 0 }, { 0.f, 0.05f, 0.4f } },
+        { "Nasty chop", { { "amount", 100 }, { "speed", 4 }, { "smooth", 4 }, { "dfuzz", 45 }, { "loud", 35 } }, { 1, 1, 1 }, { 0.f, 0.f, 0.15f } },
         { "Sidechain house", { { "amount", 85 }, { "speed", 3 }, { "slope", 1 }, { "smooth", 6 } }, { 0, 0, 0 }, { 0.f, 0.15f, 0.5f } },
         { "Trance gate 1/16", { { "amount", 100 }, { "speed", 3 }, { "smooth", 8 } }, { 8, 8, 8 }, { 0.f, 0.f, 0.1f } },
         { "Eighth-note pump", { { "amount", 90 }, { "speed", 3 }, { "smooth", 5 } }, { 9, 9, 9 }, { 0.f, 0.1f, 0.45f } },
-        { "UK hardcore chop", { { "amount", 100 }, { "speed", 4 }, { "swing", 20 }, { "drive", 25 }, { "drivetype", 1 }, { "smooth", 5 } }, { 1, 1, 1 }, { 0.f, 0.f, 0.2f } },
+        { "UK hardcore chop", { { "amount", 100 }, { "speed", 4 }, { "swing", 20 }, { "dtape", 25 }, { "smooth", 5 } }, { 1, 1, 1 }, { 0.f, 0.f, 0.2f } },
         { "Slow tremolo", { { "amount", 60 }, { "sync", 0 }, { "hz", 3.5f }, { "smooth", 20 } }, { 11, 11, 11 }, { 0.3f, 0.3f, 0.3f } },
         { "Gentle glue", { { "amount", 35 }, { "speed", 3 }, { "smooth", 15 } }, { 0, 0, 0 }, { 0.2f, 0.3f, 0.5f } },
         { "Half-time swell", { { "amount", 100 }, { "speed", 1 }, { "smooth", 20 } }, { 2, 2, 2 }, { 0.f, 0.f, 0.2f } },
@@ -255,9 +291,37 @@ bool Scaredy::loadUserPreset(const juce::String& name)
     if (auto xml = juce::XmlDocument::parse(f))
         if (xml->hasTagName(apvts.state.getType()))
         {
+            migrateXml(*xml);
             apvts.replaceState(juce::ValueTree::fromXml(*xml));
             loadCurvesFromState();
             return true;
         }
     return false;
+}
+
+// ---------- shape library ----------
+juce::File Scaredy::shapeFolder() const { return presetFolder().getParentDirectory().getChildFile("shapes"); }
+juce::StringArray Scaredy::userShapeNames() const
+{
+    juce::StringArray out;
+    for (auto& f : shapeFolder().findChildFiles(juce::File::findFiles, false, "*.shape")) out.add(f.getFileNameWithoutExtension());
+    out.sort(true); return out;
+}
+bool Scaredy::saveShape(const juce::String& name, const Curve& c)
+{
+    const auto clean = juce::File::createLegalFileName(name.trim()).substring(0, 60);
+    if (clean.isEmpty()) return false;
+    auto dir = shapeFolder(); if (! dir.createDirectory().wasOk()) return false;
+    return dir.getChildFile(clean + ".shape").replaceWithText(juce::String(curveToString(c)));
+}
+bool Scaredy::loadShape(const juce::String& name, Curve& out) const
+{
+    const auto f = shapeFolder().getChildFile(juce::File::createLegalFileName(name) + ".shape");
+    if (! f.existsAsFile() || f.getSize() > 100000) return false;
+    out = curveFromString(f.loadFileAsString().toStdString()); return true;
+}
+bool Scaredy::deleteShape(const juce::String& name)
+{
+    const auto f = shapeFolder().getChildFile(juce::File::createLegalFileName(name) + ".shape");
+    return f.existsAsFile() && f.deleteFile();
 }

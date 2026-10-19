@@ -8,7 +8,8 @@ A free, open source volume shaper (VST3 and standalone) for kick pumps, trance g
 - Three bands (crossovers at 120 Hz and 2.4 kHz by default, 12/24/48 dB per octave or linear phase), each with its own envelope you draw.
 - Envelope editor: drag points, double click to add, bend segments, ramp/hold/step tools, shape presets, grid, snap, swing, lock.
 - Speed in note lengths (sync) or Hz, offset in ms or samples, Repeat or Input hit trigger, optional sidechain trigger.
-- Drive (oversampled, smooth), lookahead limiter, hidden soft clipper, per-band gain reduction meters, band spectrum and level views.
+- Six mixable drive stages (Tube, Tape, Soft, PurrOne Drive, Transistor, Fuzz, oversampled), Loudness (opto leveller and hidden soft clipper, dry/wet), lookahead limiter, per-band gain reduction meters, band spectrum and level views that show what the ducking removes.
+- Shape library with thumbnails (your own shapes too), click-free default shape, resizable from every edge and corner.
 - AMOUNT 0 % is an exact bypass (bit for bit), 100 % is the full depth you drew. Exact latency is reported to the host.
 - No telemetry, no network, no data collected.
 

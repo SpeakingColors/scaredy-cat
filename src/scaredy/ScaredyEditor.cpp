@@ -11,7 +11,7 @@ using catui::Colours;
 
 namespace
 {
-constexpr int kBaseW = 1180, kBaseH = 736, kCheek = 22, kContentW = kBaseW - 2 * kCheek;
+constexpr int kBaseW = 1180, kBaseH = 856, kMinW = 708, kMaxW = 2360, kCheek = 22, kContentW = kBaseW - 2 * kCheek;
 
 juce::Colour bandCol(int b) { return b == 0 ? catui::SodaPop::orange() : b == 1 ? catui::SodaPop::orchid() : catui::SodaPop::mint(); }
 const char* bandName(int b) { return b == 0 ? "LOW" : b == 1 ? "MID" : "HIGH"; }
@@ -22,6 +22,12 @@ juce::Colour title()   { return catui::SodaPop::mistLilac(); }
 juce::String dbText(float lin) { const float d = juce::Decibels::gainToDecibels(lin, -100.f); return d <= -99.f ? juce::String("-inf") : juce::String(d, 1); }
 float freqToN(float f) { return std::log(juce::jlimit(20.f, 20000.f, f) / 20.f) / std::log(1000.f); }
 float nToFreq(float n) { return 20.f * std::pow(1000.f, juce::jlimit(0.f, 1.f, n)); }
+// small left and right arrows beside a draggable crossover line
+void drawXArrows(juce::Graphics& g, float x, float cy)
+{
+    juce::Path p; p.addTriangle(x - 3.f, cy, x - 9.f, cy - 5.f, x - 9.f, cy + 5.f); p.addTriangle(x + 3.f, cy, x + 9.f, cy - 5.f, x + 9.f, cy + 5.f);
+    g.setColour(juce::Colours::white.withAlpha(0.95f)); g.fillPath(p);
+}
 
 // Look and feel: the cat one plus neon rotary knobs (colour comes from the slider's fill colour).
 class ScaredyLAF : public catui::CatLookAndFeel
@@ -205,6 +211,7 @@ struct XoverDrag
     void begin(int w) { which = w; (w == 0 ? aLo : aHi).beginGesture(); }
     void drag(float f) { auto& p = which == 0 ? lo : hi; auto& a = which == 0 ? aLo : aHi; a.setValueAsPartOfGesture(juce::jlimit(p.convertFrom0to1(0.f), p.convertFrom0to1(1.f), f)); }
     void end() { if (which >= 0) (which == 0 ? aLo : aHi).endGesture(); which = -1; }
+    void reset(int w) { auto& p = w == 0 ? lo : hi; (w == 0 ? aLo : aHi).setValueAsCompleteGesture(p.convertFrom0to1(p.getDefaultValue())); }   // double click: back to the default frequency
     int pick(float xPix, float x0, float w, float tol) const
     {
         const float x1 = x0 + w * freqToN(freq(0)), x2 = x0 + w * freqToN(freq(1));
@@ -251,13 +258,13 @@ public:
             for (int w = 0; w < 2; ++w)
             {
                 const double f = w == 0 ? f1 : f2; const float x = r.getX() + r.getWidth() * freqToN((float) f);
-                g.setColour(juce::Colours::white.withAlpha(0.75f)); g.drawVerticalLine((int) x, r.getY(), r.getBottom());
+                g.setColour(juce::Colours::white.withAlpha(0.75f)); g.drawVerticalLine((int) x, r.getY(), r.getBottom()); drawXArrows(g, x, r.getCentreY());
                 g.setColour(juce::Colours::white); g.drawText(f >= 1000.0 ? juce::String(f / 1000.0, 2) + "k" : juce::String((int) std::lround(f)) + "Hz", (int) x - 24, (int) r.getBottom() - 14, 48, 12, juce::Justification::centred);
             }
         }
     }
     void mouseMove(const juce::MouseEvent& e) override { setMouseCursor(proc.get("multiband") > 0.5f && xd.pick(e.position.x, plot().getX(), plot().getWidth(), 8.f) >= 0 ? juce::MouseCursor::LeftRightResizeCursor : juce::MouseCursor::NormalCursor); }
-    void mouseDown(const juce::MouseEvent& e) override { const int w = xd.pick(e.position.x, plot().getX(), plot().getWidth(), 10.f); if (w >= 0) xd.begin(w); }
+    void mouseDown(const juce::MouseEvent& e) override { const int w = xd.pick(e.position.x, plot().getX(), plot().getWidth(), 10.f); if (w >= 0) { if (e.getNumberOfClicks() > 1) xd.reset(w); else xd.begin(w); } }
     void mouseDrag(const juce::MouseEvent& e) override { if (xd.which >= 0) xd.drag(nToFreq((e.position.x - plot().getX()) / plot().getWidth())); }
     void mouseUp(const juce::MouseEvent&) override { xd.end(); }
 private:
@@ -410,17 +417,33 @@ public:
         {
             drag = Draw; drawX0 = drawX1 = snapX(xN(b, e.position.x)); drawY0 = drawY1 = yN(b, e.position.y); repaint(); return;
         }
-        if (e.mods.isAltDown() || e.mods.isCtrlDown())
+        if (e.getNumberOfClicks() > 1)
+        {
+            const int i = insertPoint(c, snapX(xN(b, e.position.x))); sel.clear(); sel.insert(i); commit(b); return;
+        }
+        if (nearCurve(b, e.position) || e.mods.isAltDown() || e.mods.isCtrlDown())   // drag the curve itself to bend it
         {
             const float x = xN(b, e.position.x); segIdx = 0;
             for (size_t i = 0; i + 1 < c.size(); ++i) if (c[i + 1].x <= x) segIdx = (int) i + 1;
             if (segIdx + 1 < (int) c.size()) { drag = Curve_; repaint(); return; }
         }
-        if (e.getNumberOfClicks() > 1)
-        {
-            const int i = insertPoint(c, snapX(xN(b, e.position.x))); sel.clear(); sel.insert(i); commit(b); return;
-        }
         sel.clear(); repaint();
+    }
+    bool nearCurve(int b, juce::Point<float> pos) const
+    {
+        const auto& c = cur[(size_t) b]; const float x = xN(b, pos.x);
+        for (size_t i = 0; i < c.size(); ++i) if (ptPos(b, c[i]).getDistanceFrom(pos) < 11.f) return false;
+        return std::abs(ptPos(b, Pt { x, evalCurve(c, x), 0.f }).y - pos.y) < 13.f;
+    }
+    void mouseMove(const juce::MouseEvent& e) override
+    {
+        setMouseCursor(! locked() && tool == Select && nearCurve(laneAt(e.position.y), e.position) ? juce::MouseCursor::UpDownResizeCursor : juce::MouseCursor::NormalCursor);
+    }
+    Curve laneCurve() const { return cur[(size_t) activeLane]; }
+    void applyCurve(Curve c)
+    {
+        if (locked()) return;
+        sanitize(c); cur[(size_t) activeLane] = std::move(c); sel.clear(); commit(activeLane);
     }
     void mouseDrag(const juce::MouseEvent& e) override
     {
@@ -483,47 +506,111 @@ public:
     void notifyExternal() { refresh(); }
 };
 
-// ---------- the shape glyph row ----------
+// ---------- the shape glyph row and the shape library ----------
+// one line of the library dropdown: a thumbnail of the curve and its name
+class ShapeThumb : public juce::PopupMenu::CustomComponent
+{
+public:
+    ShapeThumb(Curve c, juce::String n, juce::Colour col) : juce::PopupMenu::CustomComponent(true), cv(std::move(c)), name(std::move(n)), colour(col) {}
+    void getIdealSize(int& w, int& h) override { w = 220; h = 40; }
+    void paint(juce::Graphics& g) override
+    {
+        auto r = getLocalBounds().toFloat();
+        if (isItemHighlighted()) { g.setColour(catui::SodaPop::periwinkle().withAlpha(0.35f)); g.fillRoundedRectangle(r.reduced(2.f), 5.f); }
+        auto t = r.removeFromLeft(84.f).reduced(6.f, 4.f);
+        g.setColour(juce::Colour(0xff111130)); g.fillRoundedRectangle(t, 4.f); g.setColour(Colours::dim().withAlpha(0.4f)); g.drawRoundedRectangle(t.reduced(0.5f), 4.f, 1.f);
+        juce::Path p; const auto in = t.reduced(6.f, 5.f);
+        for (int k = 0; k <= 48; ++k) { const float x = (float) k / 48.f, y = evalCurve(cv, x); const float px = in.getX() + x * in.getWidth(), py = in.getBottom() - y * in.getHeight(); if (k == 0) p.startNewSubPath(px, py); else p.lineTo(px, py); }
+        g.setColour(colour); g.strokePath(p, juce::PathStrokeType(1.7f));
+        g.setColour(Colours::text()); g.setFont(juce::FontOptions(13.f)); g.drawText(name, r.reduced(6.f, 0.f).toNearestInt(), juce::Justification::centredLeft);
+    }
+private:
+    Curve cv; juce::String name; juce::Colour colour;
+};
+
 class ShapeRow : public juce::Component, public juce::SettableTooltipClient
 {
 public:
-    ShapeRow(EnvEditor& e) : env(e) {}
+    ShapeRow(EnvEditor& e, Scaredy& p) : env(e), proc(p) {}
+    static constexpr int kRight = 160;   // [Shapes v] [+] [-]
+    int glyphW() const { return (int) ((float) (getWidth() - kRight - 8 - 7 * 5) / 8.f); }
+    juce::Rectangle<float> libBox() const { return { (float) getWidth() - (float) kRight, 0.f, 80.f, (float) getHeight() }; }
+    juce::Rectangle<float> addBox() const { return { (float) getWidth() - 76.f, 0.f, 36.f, (float) getHeight() }; }
+    juce::Rectangle<float> delBox() const { return { (float) getWidth() - 36.f, 0.f, 36.f, (float) getHeight() }; }
     void paint(juce::Graphics& g) override
     {
-        const int n = 8; const float w = (float) (getWidth() - 70 - 8 * 5) / (float) n;
+        const int n = 8; const float w = (float) glyphW();
         const auto col = bandCol(env.activeLane);
+        auto chip = [&](juce::Rectangle<float> b) { g.setColour(juce::Colour(0xff111130)); g.fillRoundedRectangle(b, 5.f); g.setColour(Colours::dim().withAlpha(0.4f)); g.drawRoundedRectangle(b.reduced(0.5f), 5.f, 1.f); };
         for (int i = 0; i < n; ++i)
         {
-            auto b = juce::Rectangle<float>((float) i * (w + 5.f), 0.f, w, (float) getHeight());
-            g.setColour(juce::Colour(0xff111130)); g.fillRoundedRectangle(b, 5.f); g.setColour(Colours::dim().withAlpha(0.4f)); g.drawRoundedRectangle(b.reduced(0.5f), 5.f, 1.f);
+            auto b = juce::Rectangle<float>((float) i * (w + 5.f), 0.f, w, (float) getHeight()); chip(b);
             const auto cv = shapeCurve(i, 0.f); juce::Path p; const auto in = b.reduced(9.f, 7.f);
             for (int k = 0; k <= 40; ++k) { const float x = (float) k / 40.f, y = evalCurve(cv, x); const float px = in.getX() + x * in.getWidth(), py = in.getBottom() - y * in.getHeight(); if (k == 0) p.startNewSubPath(px, py); else p.lineTo(px, py); }
             g.setColour(col); g.strokePath(p, juce::PathStrokeType(1.8f));
         }
-        auto m = juce::Rectangle<float>((float) getWidth() - 66.f, 0.f, 66.f, (float) getHeight());
-        g.setColour(juce::Colour(0xff111130)); g.fillRoundedRectangle(m, 5.f); g.setColour(Colours::dim().withAlpha(0.4f)); g.drawRoundedRectangle(m.reduced(0.5f), 5.f, 1.f);
-        g.setColour(Colours::text()); g.setFont(juce::FontOptions(12.f)); g.drawText("More", m.toNearestInt(), juce::Justification::centred);
+        chip(libBox()); g.setColour(Colours::text()); g.setFont(juce::FontOptions(12.f)); g.drawText("Shapes", libBox().withTrimmedRight(14.f).toNearestInt(), juce::Justification::centred);
+        { const auto a = libBox(); juce::Path tri; tri.addTriangle(a.getRight() - 16.f, a.getCentreY() - 2.f, a.getRight() - 8.f, a.getCentreY() - 2.f, a.getRight() - 12.f, a.getCentreY() + 3.f); g.setColour(Colours::accent()); g.fillPath(tri); }
+        chip(addBox()); chip(delBox());
+        g.setColour(catui::SodaPop::mint()); g.setFont(juce::FontOptions(20.f, juce::Font::bold)); g.drawText("+", addBox().toNearestInt(), juce::Justification::centred);
+        g.setColour(hotRed()); g.drawText("-", delBox().toNearestInt(), juce::Justification::centred);
     }
     void mouseDown(const juce::MouseEvent& e) override
     {
-        const int n = 8; const float w = (float) (getWidth() - 70 - 8 * 5) / (float) n;
-        if (e.position.x >= (float) getWidth() - 66.f)
-        {
-            juce::PopupMenu m;
-            for (int i = 8; i < kNumShapes; ++i) m.addItem(100 + i, shapeName(i));
-            m.addSeparator(); m.addItem(1, "Reverse"); m.addItem(2, "Flip upside down"); m.addItem(3, "Copy this lane to all lanes"); m.addItem(4, "Random steps (new)");
-            m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this), [this](int r)
-            {
-                if (r >= 100) env.applyShape(r - 100);
-                else if (r == 1) env.applyOp(0); else if (r == 2) env.applyOp(1); else if (r == 3) env.applyOp(2);
-                else if (r == 4) env.applyShape(10, (unsigned) juce::Random::getSystemRandom().nextInt(100000));
-            });
-            return;
-        }
-        const int i = (int) (e.position.x / (w + 5.f)); if (i >= 0 && i < n) env.applyShape(i);
+        if (libBox().contains(e.position)) { showLibrary(); return; }
+        if (addBox().contains(e.position)) { askAdd(); return; }
+        if (delBox().contains(e.position)) { showDelete(); return; }
+        const int i = (int) (e.position.x / ((float) glyphW() + 5.f)); if (i >= 0 && i < 8 && e.position.x < (float) getWidth() - (float) kRight) env.applyShape(i);
     }
 private:
-    EnvEditor& env;
+    void showLibrary()
+    {
+        juce::PopupMenu m; const auto col = bandCol(env.activeLane);
+        m.addSectionHeader("Built in");
+        for (int i = 0; i < kNumShapes; ++i) m.addCustomItem(100 + i, std::make_unique<ShapeThumb>(shapeCurve(i, 0.f), shapeName(i), col));
+        const auto user = proc.userShapeNames();
+        if (user.size() > 0)
+        {
+            m.addSeparator(); m.addSectionHeader("My shapes");
+            for (int j = 0; j < user.size(); ++j) { Curve c; if (proc.loadShape(user[j], c)) m.addCustomItem(1000 + j, std::make_unique<ShapeThumb>(c, user[j], col)); }
+        }
+        m.addSeparator(); m.addItem(1, "Reverse"); m.addItem(2, "Flip upside down"); m.addItem(3, "Copy this lane to all lanes"); m.addItem(4, "Random steps (new)");
+        juce::Component::SafePointer<ShapeRow> self(this);
+        m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMinimumWidth(230), [self, user](int r)
+        {
+            if (self == nullptr || r == 0) return;
+            auto& env = self->env;
+            if (r >= 1000) { Curve c; if (r - 1000 < user.size() && self->proc.loadShape(user[r - 1000], c)) env.applyCurve(c); }
+            else if (r >= 100) env.applyShape(r - 100);
+            else if (r == 1) env.applyOp(0); else if (r == 2) env.applyOp(1); else if (r == 3) env.applyOp(2);
+            else if (r == 4) env.applyShape(10, (unsigned) juce::Random::getSystemRandom().nextInt(100000));
+        });
+    }
+    void askAdd()
+    {
+        auto* w = new juce::AlertWindow("Add shape", "Name for this shape (saved in your shape library):", juce::MessageBoxIconType::NoIcon, this);
+        w->addTextEditor("name", "My shape");
+        w->addButton("Add", 1, juce::KeyPress(juce::KeyPress::returnKey)); w->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+        juce::Component::SafePointer<ShapeRow> self(this); const Curve c = env.laneCurve();
+        w->enterModalState(true, juce::ModalCallbackFunction::create([self, w, c](int r) { if (r == 1 && self != nullptr) self->proc.saveShape(w->getTextEditorContents("name"), c); }), true);
+    }
+    void showDelete()
+    {
+        const auto user = proc.userShapeNames();
+        juce::PopupMenu m; const auto col = bandCol(env.activeLane);
+        if (user.size() == 0) m.addItem(-1, "No saved shapes yet", false);
+        else { m.addSectionHeader("Delete which shape?"); for (int j = 0; j < user.size(); ++j) { Curve c; if (proc.loadShape(user[j], c)) m.addCustomItem(2000 + j, std::make_unique<ShapeThumb>(c, user[j], col)); } }
+        juce::Component::SafePointer<ShapeRow> self(this);
+        m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMinimumWidth(230), [self, user](int r)
+        {
+            if (self == nullptr || r < 2000 || r - 2000 >= user.size()) return;
+            const juce::String name = user[r - 2000];
+            auto* w = new juce::AlertWindow("Delete shape", "You are going to delete this shape, are you sure?", juce::MessageBoxIconType::QuestionIcon, self.getComponent());
+            w->addButton("Yes", 1, juce::KeyPress(juce::KeyPress::returnKey)); w->addButton("No", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+            w->enterModalState(true, juce::ModalCallbackFunction::create([self, name](int ans) { if (ans == 1 && self != nullptr) self->proc.deleteShape(name); }), true);
+        });
+    }
+    EnvEditor& env; Scaredy& proc;
 };
 
 // icon button for the toolbar
@@ -599,7 +686,8 @@ public:
         const unsigned w = proc.wpos.load(std::memory_order_acquire);
         for (int src = 0; src < 3; ++src)
         {
-            for (int i = 0; i < N; ++i) buf[i] = proc.ring[src][(w - (unsigned) N + (unsigned) i) & (unsigned) (Scaredy::kRing - 1)].load(std::memory_order_relaxed) * win[i];
+            const unsigned back = (unsigned) N + (src == 0 ? (unsigned) std::min(4000, std::max(0, proc.latency())) : 0u);   // the input is read late by the latency, so it lines up with the output
+            for (int i = 0; i < N; ++i) buf[i] = proc.ring[src][(w - back + (unsigned) i) & (unsigned) (Scaredy::kRing - 1)].load(std::memory_order_relaxed) * win[i];
             std::fill(buf + N, buf + 2 * N, 0.f);
             fft.performFrequencyOnlyForwardTransform(buf, true);
             for (int k = 0; k < N / 2; ++k)
@@ -619,48 +707,47 @@ public:
         g.setFont(juce::FontOptions(9.5f, juce::Font::bold));
         for (int b = 0; b < 3; ++b) { g.setColour(bandCol(b)); g.drawText(bandName(b), (int) xs[b] + 4, (int) r.getY() + 1, 40, 11, juce::Justification::left); }
         if (level) paintLevel(g, r, xs); else paintSpectrum(g, r, xs);
-        g.setColour(juce::Colours::white.withAlpha(0.8f)); g.drawVerticalLine((int) x1, r.getY(), r.getBottom()); g.drawVerticalLine((int) x2, r.getY(), r.getBottom());
+        g.setColour(juce::Colours::white.withAlpha(0.8f)); g.drawVerticalLine((int) x1, r.getY(), r.getBottom()); g.drawVerticalLine((int) x2, r.getY(), r.getBottom()); drawXArrows(g, x1, r.getCentreY()); drawXArrows(g, x2, r.getCentreY());
         g.setFont(juce::FontOptions(9.5f)); g.setColour(juce::Colours::white);
         g.drawText(juce::String((int) std::lround(f1)) + " Hz", (int) x1 + 2, (int) r.getBottom() - 12, 50, 11, juce::Justification::left);
         g.drawText(f2 >= 1000.f ? juce::String(f2 / 1000.f, 2) + " kHz" : juce::String((int) f2) + " Hz", (int) x2 + 2, (int) r.getBottom() - 12, 60, 11, juce::Justification::left);
     }
     void mouseMove(const juce::MouseEvent& e) override { setMouseCursor(xd.pick(e.position.x, plot().getX(), plot().getWidth(), 8.f) >= 0 ? juce::MouseCursor::LeftRightResizeCursor : juce::MouseCursor::NormalCursor); }
-    void mouseDown(const juce::MouseEvent& e) override { const int w = xd.pick(e.position.x, plot().getX(), plot().getWidth(), 10.f); if (w >= 0) xd.begin(w); }
+    void mouseDown(const juce::MouseEvent& e) override { const int w = xd.pick(e.position.x, plot().getX(), plot().getWidth(), 10.f); if (w >= 0) { if (e.getNumberOfClicks() > 1) xd.reset(w); else xd.begin(w); } }
     void mouseDrag(const juce::MouseEvent& e) override { if (xd.which >= 0) xd.drag(nToFreq((e.position.x - plot().getX()) / plot().getWidth())); }
     void mouseUp(const juce::MouseEvent&) override { xd.end(); }
 private:
-    juce::Path trace(int src, juce::Rectangle<float> r, bool closed) const
+    float yAt(int src, float x, juce::Rectangle<float> r) const
     {
-        juce::Path p; const float binHz = (float) proc.sampleRate() / (float) N; bool first = true;
-        for (float x = 0.f; x <= r.getWidth(); x += 2.f)
-        {
-            const float fa = nToFreq((x - 1.f) / r.getWidth()), fb = nToFreq((x + 1.f) / r.getWidth());
-            const int b0 = juce::jlimit(1, N / 2 - 1, (int) std::floor(fa / binHz)), b1 = juce::jlimit(b0, N / 2 - 1, (int) std::ceil(fb / binHz));
-            float db = -120.f; for (int k = b0; k <= b1; ++k) db = std::max(db, sm[src][k]);
-            const float y = r.getBottom() - juce::jlimit(0.f, 1.f, (db + 90.f) / 80.f) * r.getHeight();
-            if (first) { if (closed) { p.startNewSubPath(r.getX() + x, r.getBottom()); p.lineTo(r.getX() + x, y); } else p.startNewSubPath(r.getX() + x, y); first = false; } else p.lineTo(r.getX() + x, y);
-        }
-        if (closed) { p.lineTo(r.getRight(), r.getBottom()); p.closeSubPath(); }
+        const float binHz = (float) proc.sampleRate() / (float) N;
+        const float fa = nToFreq((x - 1.f) / r.getWidth()), fb = nToFreq((x + 1.f) / r.getWidth());
+        const int b0 = juce::jlimit(1, N / 2 - 1, (int) std::floor(fa / binHz)), b1 = juce::jlimit(b0, N / 2 - 1, (int) std::ceil(fb / binHz));
+        float db = -120.f; for (int k = b0; k <= b1; ++k) db = std::max(db, sm[src][k]);
+        return r.getBottom() - juce::jlimit(0.f, 1.f, (db + 90.f) / 80.f) * r.getHeight();
+    }
+    juce::Path trace(int src, juce::Rectangle<float> r) const
+    {
+        juce::Path p; bool first = true;
+        for (float x = 0.f; x <= r.getWidth(); x += 2.f) { const float y = yAt(src, x, r); if (first) { p.startNewSubPath(r.getX() + x, y); first = false; } else p.lineTo(r.getX() + x, y); }
         return p;
     }
+    // dashed: the original sound. Coloured fill: what the ducking takes away from it. Thin line: what comes out.
     void paintSpectrum(juce::Graphics& g, juce::Rectangle<float> r, const float* xs)
     {
-        const int disp = juce::jlimit(0, 2, (int) std::lround(proc.get("scdisp")));
-        bool scLive = false; for (int k = 1; k < N / 2; k += 7) scLive |= sm[1][k] > -100.f;
-        const float dl[2] = { 4.f, 3.f };
-        auto dashed = [&](int src, juce::Colour c)
-        {
-            juce::Path d; juce::PathStrokeType(1.3f).createDashedStroke(d, trace(src, r, false), dl, 2);
-            g.setColour(c); g.fillPath(d);
-        };
-        if (disp != 1 || ! scLive) dashed(0, juce::Colours::white.withAlpha(0.8f));
-        if (disp != 0 && scLive) dashed(1, hotRed());
-        const auto post = trace(2, r, true);
+        std::vector<float> yo, yb;
+        for (float x = 0.f; x <= r.getWidth(); x += 2.f) { const float a = yAt(0, x, r), b = yAt(2, x, r); yo.push_back(a); yb.push_back(std::max(a, b)); }
+        juce::Path rem; rem.startNewSubPath(r.getX(), yo[0]);
+        for (size_t i = 1; i < yo.size(); ++i) rem.lineTo(r.getX() + 2.f * (float) i, yo[i]);
+        for (size_t i = yo.size(); i-- > 0;) rem.lineTo(r.getX() + 2.f * (float) i, yb[i]);
+        rem.closeSubPath();
         for (int b = 0; b < 3; ++b)
         {
             g.saveState(); g.reduceClipRegion(juce::Rectangle<float>(xs[b], r.getY(), xs[b + 1] - xs[b], r.getHeight()).toNearestInt());
-            g.setColour(bandCol(b).withAlpha(0.55f)); g.fillPath(post); g.setColour(bandCol(b)); g.strokePath(post, juce::PathStrokeType(1.2f)); g.restoreState();
+            g.setColour(bandCol(b).withAlpha(0.75f)); g.fillPath(rem); g.restoreState();
         }
+        g.setColour(juce::Colours::white.withAlpha(0.35f)); g.strokePath(trace(2, r), juce::PathStrokeType(1.0f));
+        const float dl[2] = { 4.f, 3.f }; juce::Path d; juce::PathStrokeType(1.4f).createDashedStroke(d, trace(0, r), dl, 2);
+        g.setColour(juce::Colours::white.withAlpha(0.9f)); g.fillPath(d);
     }
     void paintLevel(juce::Graphics& g, juce::Rectangle<float> r, const float* xs)
     {
@@ -671,9 +758,10 @@ private:
             auto yOf = [&](float db) { return r.getBottom() - juce::jlimit(0.f, 1.f, (db + 60.f) / 60.f) * r.getHeight(); };
             g.setColour(bandCol(b).withAlpha(0.6f)); g.fillRect(z.withTop(yOf(post)));
             g.setColour(bandCol(b)); g.drawRect(z.withTop(yOf(post)), 1.2f);
+            if (pre > post + 0.1f) { g.setColour(hotRed().withAlpha(0.45f)); g.fillRect(z.withTop(yOf(pre)).withBottom(yOf(post))); }   // the part taken away
             g.setColour(juce::Colours::white.withAlpha(0.85f)); const float dl[2] = { 4.f, 3.f }; g.drawDashedLine({ z.getX(), yOf(pre), z.getRight(), yOf(pre) }, dl, 2, 1.4f);
             g.setColour(juce::Colours::white); g.setFont(juce::FontOptions(11.f, juce::Font::bold));
-            g.drawText(post <= -79.f ? juce::String("-inf") : juce::String(post, 1) + " dB", z.toNearestInt().withHeight(13).withY((int) r.getY() + 12), juce::Justification::centred);
+            g.drawText(post <= -79.f ? juce::String("-inf") : juce::String(-std::max(0.f, pre - post), 1) + " dB", z.toNearestInt().withHeight(13).withY((int) r.getY() + 12), juce::Justification::centred);
         }
     }
     Scaredy& proc; XoverDrag xd; juce::dsp::FFT fft { 11 }; float win[N]; float buf[2 * N]; float sm[3][N / 2];
@@ -752,16 +840,18 @@ struct Content : public juce::Component
     juce::TextButton prevBtn { "<" }, nextBtn { ">" }, saveBtn { "Save" }, tipsBtn { "i" }, menuBtn { "Menu" }, sizeBtn { "100%" };
     juce::ComboBox presetBox;
     // left
-    ToggleChip multi; ChoiceStrip slope; CrossGraph cross; ChoiceStrip linkedStrip; ToggleChip linear, scTrig; ChoiceStrip scDisp;
+    ToggleChip multi; ChoiceStrip slope; CrossGraph cross; ChoiceStrip linkedStrip; ToggleChip linear, scTrig;
     juce::Slider knob[3]; std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> knobAtt[3]; std::unique_ptr<SoloBtn> solo[3];
     // middle
-    EnvEditor env; ShapeRow shapes { env }; std::vector<std::unique_ptr<ToolBtn>> tools; CycleChip snapChip, gridChip; ValueChip swingChip;
+    EnvEditor env; ShapeRow shapes { env, proc }; std::vector<std::unique_ptr<ToolBtn>> tools; CycleChip snapChip, gridChip; ValueChip swingChip;
     PropStrip specMode; SpectrumView spectrum;
     // right
     juce::Slider amount; std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> amountAtt; Meters meters;
+    // drive and loudness row
+    juce::Slider dknob[7]; std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> dknobAtt[7];
     // bottom
-    SpeedBox speed; juce::TextButton spPrev { "<" }, spNext { ">" }; ChoiceStrip syncStrip; juce::ComboBox trigBox, driveBox; std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> trigAtt, driveAtt;
-    ToolBtn lock; ValueChip thresh, driveChip; ToggleChip limOn; ValueChip ceilChip, smoothChip, offsetChip; ChoiceStrip offUnit;
+    SpeedBox speed; juce::TextButton spPrev { "<" }, spNext { ">" }; ChoiceStrip syncStrip; juce::ComboBox trigBox; std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> trigAtt;
+    ToolBtn lock; ValueChip thresh; ToggleChip limOn; ValueChip ceilChip, smoothChip, offsetChip; ChoiceStrip offUnit;
 
     static juce::RangedAudioParameter& par(Scaredy& p, const char* id) { return *p.apvts.getParameter(id); }
     void tip(juce::SettableTooltipClient& c, const juce::String& t) { tipSetters.push_back([&c, t](bool on) { c.setTooltip(on ? t : juce::String()); }); }
@@ -772,8 +862,7 @@ struct Content : public juce::Component
           power(par(p, "power"), "POWER", catui::SodaPop::mint(), true),
           multi(par(p, "multiband"), "ON", catui::SodaPop::mint(), true), slope(par(p, "slope"), { "12", "24", "48" }, catui::SodaPop::mint()),
           cross(p), linkedStrip(par(p, "linked"), { "Unlinked", "Linked" }, catui::SodaPop::orchid()),
-          linear(par(p, "linear"), "Linear phase", catui::SodaPop::orange()), scTrig(par(p, "sctrig"), "Sidechain triggers envelope", catui::SodaPop::hotPink()),
-          scDisp(par(p, "scdisp"), { "Input", "Sidechain", "Both" }, catui::SodaPop::orchid()),
+          linear(par(p, "linear"), "Linear phase", catui::SodaPop::orange()), scTrig(par(p, "sctrig"), "Sidechain trigger", catui::SodaPop::hotPink()),
           env(p), snapChip(par(p, "snap"), [](int i) { return juce::String(i ? "Snap on" : "Snap off"); }, catui::SodaPop::aqua(), 2),
           gridChip(par(p, "grid"), [](int i) { static const char* n[4] = { "1/4", "1/8", "1/16", "1/32" }; return "Grid " + juce::String(n[juce::jlimit(0, 3, i)]); }, catui::SodaPop::aqua(), 4),
           swingChip(par(p, "swing"), "Swing", [](float v) { return juce::String((int) std::lround(v)) + "%"; }, catui::SodaPop::aqua()),
@@ -781,7 +870,6 @@ struct Content : public juce::Component
           speed(p), syncStrip(par(p, "sync"), { "Hz", "Sync" }, catui::SodaPop::mint()),
           lock(9, [this] { proc.setProp("locked", ! (bool) proc.getProp("locked", false)); lock.on = (bool) proc.getProp("locked", false); lock.repaint(); env.repaint(); }),
           thresh(par(p, "thresh"), "Thresh", [](float v) { return juce::String(v, 0) + " dB"; }, catui::SodaPop::hotPink(), true),
-          driveChip(par(p, "drive"), "", [](float v) { return juce::String((int) std::lround(v)) + "%"; }, catui::SodaPop::amber()),
           limOn(par(p, "limon"), "ON", catui::SodaPop::orange(), true),
           ceilChip(par(p, "limceil"), "", [](float v) { return juce::String(v, 1) + " dB"; }, catui::SodaPop::orange()),
           smoothChip(par(p, "smooth"), "", [](float v) { return juce::String((int) std::lround(v)) + "%"; }, catui::SodaPop::mint()),
@@ -789,8 +877,8 @@ struct Content : public juce::Component
           offUnit(par(p, "offunit"), { "ms", "smp" }, catui::SodaPop::mint())
     {
         logo = juce::Drawable::createFromSVG(*juce::parseXML(juce::String::fromUTF8(kLogoSvg)));
-        for (auto* c : std::initializer_list<juce::Component*>{ &power, &prevBtn, &nextBtn, &saveBtn, &tipsBtn, &menuBtn, &sizeBtn, &presetBox, &multi, &slope, &cross, &linkedStrip, &linear, &scTrig, &scDisp, &env, &shapes,
-                                                                &snapChip, &gridChip, &swingChip, &specMode, &spectrum, &amount, &meters, &speed, &spPrev, &spNext, &syncStrip, &trigBox, &driveBox, &lock, &thresh, &driveChip,
+        for (auto* c : std::initializer_list<juce::Component*>{ &power, &prevBtn, &nextBtn, &saveBtn, &tipsBtn, &menuBtn, &sizeBtn, &presetBox, &multi, &slope, &cross, &linkedStrip, &linear, &scTrig, &env, &shapes,
+                                                                &snapChip, &gridChip, &swingChip, &specMode, &spectrum, &amount, &meters, &speed, &spPrev, &spNext, &syncStrip, &trigBox, &lock, &thresh,
                                                                 &limOn, &ceilChip, &smoothChip, &offsetChip, &offUnit })
             addAndMakeVisible(*c);
         // knobs
@@ -810,7 +898,19 @@ struct Content : public juce::Component
         amountAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "amount", amount);
         amount.setTextValueSuffix(" %"); amount.setNumDecimalPlacesToDisplay(0);
         trigBox.addItemList({ "Repeat", "Input hit" }, 1); trigAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(p.apvts, "trigger", trigBox);
-        driveBox.addItemList({ "Tube", "Tape", "Soft" }, 1); driveAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(p.apvts, "drivetype", driveBox);
+        {   // six drive stages and Loudness
+            static const char* dids[7] = { "dtube", "dtape", "dsoft", "ddrive", "dtrans", "dfuzz", "loud" };
+            const juce::Colour dcol[7] = { catui::SodaPop::amber(), catui::SodaPop::orange(), catui::SodaPop::mint(), catui::SodaPop::aqua(), catui::SodaPop::orchid(), catui::SodaPop::hotPink(), catui::SodaPop::periwinkle() };
+            for (int k = 0; k < 7; ++k)
+            {
+                auto& kb = dknob[k]; kb.setSliderStyle(juce::Slider::RotaryVerticalDrag); kb.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 16);
+                kb.setRotaryParameters(juce::MathConstants<float>::pi * 1.2f, juce::MathConstants<float>::pi * 2.8f, true);
+                kb.setColour(juce::Slider::rotarySliderFillColourId, dcol[k]); addAndMakeVisible(kb);
+                dknobAtt[k] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, dids[k], kb);
+                kb.setTextValueSuffix(" %"); kb.setNumDecimalPlacesToDisplay(0);
+                kb.setDoubleClickReturnValue(true, 0.0);   // double click: back to 0 %
+            }
+        }
         trigBox.onChange = [this] { thresh.setVisible(trigBox.getSelectedId() == 2 || scTrig.isOn()); };
         for (auto* b : { &spPrev, &spNext }) addAndMakeVisible(*b);
         spPrev.onClick = [this] { speed.step(-1); }; spNext.onClick = [this] { speed.step(1); };
@@ -898,24 +998,27 @@ struct Content : public juce::Component
     {
         tip(power, "Power. Off is an exact bypass: the sound passes untouched.");
         tip(prevBtn, "Previous preset."); tip(nextBtn, "Next preset."); tip(presetBox, "Factory presets, then your own (Save).");
-        tip(saveBtn, "Save the current settings and the three envelopes as your own preset."); tip(tipsBtn, "Turn these hover tips on or off."); tip(menuBtn, "More options."); tip(sizeBtn, "Back to the normal window size.");
+        tip(saveBtn, "Save the current settings and the three envelopes as your own preset."); tip(tipsBtn, "Turn these hover tips on or off."); tip(menuBtn, "More options."); tip(sizeBtn, "Back to the normal window size (100 %). You can also drag any edge or corner of the window.");
         tip(multi, "Multiband on: three bands with their own envelopes. Off: one envelope for everything (the middle lane).");
-        tip(slope, "How steep the split between the bands is, in dB per octave."); tip(cross, "The three bands. Drag the white lines to move the crossovers.");
+        tip(slope, "How steep the split between the bands is, in dB per octave."); tip(cross, "The three bands. Drag the white lines (arrows) to move the crossovers, double click a line to reset it.");
         for (int b = 0; b < 3; ++b) { tip(knob[b], juce::String("How much of the ") + (b == 0 ? "low" : b == 1 ? "mid" : "high") + " band envelope is applied. 0 % leaves that band alone."); tip(*solo[b], "Solo: listen to this band only."); }
         tip(linkedStrip, "Linked: all three bands use the same envelope, edit one and all follow."); tip(linear, "Linear phase split: no phase shift between the bands. Adds latency (your host compensates) and a softer low crossover.");
-        tip(scDisp, "What the dashed spectrum line shows: the input, the sidechain, or both."); tip(scTrig, "Hits on the sidechain input restart the envelope (needs a sidechain connected).");
-        tip(env, "Draw the volume of each band over one cycle. Drag points, double click to add one, right click a point to delete it. Hold Alt and drag up or down to bend a segment.");
-        tip(shapes, "Quick shapes for the selected lane. More has trance gates, tremolo, random steps and tools.");
+        { static const char* dt[7] = { "Tube drive: warm, even harmonics. Mix it with the other stages, they run in series. Double click: 0 %.", "Tape drive: gentle, soft top end. Double click: 0 %.", "Soft drive: smooth and round. Double click: 0 %.",
+              "PurrOne Drive: a tanh push. Above 80 % it gets nasty. Double click: 0 %.", "PurrOne Transistor: lopsided, adds even harmonics. Above 80 % it gets nasty. Double click: 0 %.", "PurrOne Fuzz: biased clip with an octave-up growl. Above 80 % it gets nasty. Double click: 0 %.",
+              "Loudness: a smooth opto leveller (LA-2A style) and a hidden soft clipper before the limiter. 0 % is off. The knob is the dry/wet. Double click: 0 %." };
+          for (int k = 0; k < 7; ++k) tip(dknob[k], dt[k]); }
+        tip(scTrig, "Hits on the sidechain input restart the envelope (needs a sidechain connected).");
+        tip(env, "Draw the volume of each band over one cycle. Drag points, double click to add one, right click a point to delete it. Drag the line between two points up or down to bend it.");
+        tip(shapes, "Quick shapes for the selected lane. Shapes opens the library (built in and your own), + saves the lane as your own shape, - deletes one of yours.");
         tip(snapChip, "Points snap to the grid while you drag (hold Ctrl to move freely). Click to switch."); tip(gridChip, "Grid size for editing. Click to change.");
         tip(swingChip, "Delays the second half of each cycle for a swung feel. Drag up or down.");
         const char* tn[9] = { "Select and move points.", "Draw a ramp up: drag across the lane.", "Draw a ramp down: drag across the lane.", "Draw a flat hold: drag across the lane.", "Draw a step: hold the level, then jump.", "Delete the selected points (nothing selected: reset the lane).", "Select all points in the lane.", "Move the selection (or the whole lane) one grid step left.", "Move the selection (or the whole lane) one grid step right." };
         for (size_t i = 0; i < tools.size() && i < 9; ++i) tip(*tools[i], tn[i]);
-        tip(specMode, "Spectrum: the sound by frequency, dashed before the ducking and filled after. Level: peak level of each band."); tip(spectrum, "Drag the white lines to move the crossovers.");
+        tip(specMode, "Spectrum: the original sound by frequency (dashed) and what the ducking takes away from it (filled). Level: how many dB each band loses."); tip(spectrum, "Drag the arrows to move the crossovers. Double click a line to reset it.");
         tip(amount, "AMOUNT: how deep the envelopes cut. 0 % is an exact bypass, 100 % is the full depth you drew."); tip(meters, "Output peak meters (L, R) and the gain reduction of each band, in dB.");
         tip(speed, "How fast the envelope repeats: a note length in Sync mode, or Hz."); tip(spPrev, "Slower."); tip(spNext, "Faster."); tip(syncStrip, "Sync follows the host tempo. Hz runs at a fixed speed.");
         tip(trigBox, "Repeat: loops with the tempo. Input hit: every loud hit restarts the envelope (no tempo needed)."); tip(lock, "Lock the envelopes so a stray click cannot change them.");
         tip(thresh, "How loud a hit must be to restart the envelope. Drag up or down.");
-        tip(driveBox, "Drive character: Tube is warm, Tape is gentle, Soft is round."); tip(driveChip, "Smooth saturation before the ducking. Drag up or down.");
         tip(limOn, "Lookahead limiter after the ducking."); tip(ceilChip, "Highest level the limiter lets through. Drag up or down.");
         tip(smoothChip, "Rounds the envelope edges so steps do not click. Drag up or down."); tip(offsetChip, "Moves the envelope later (+) or earlier (-) so the pump lines up with your kick."); tip(offUnit, "Offset in milliseconds or samples.");
         applyTips();
@@ -929,7 +1032,6 @@ struct Content : public juce::Component
         multi.setBounds(120, 70, 44, 24); slope.setBounds(82, 104, 124, 26); cross.setBounds(28, 138, 234, 132);
         for (int b = 0; b < 3; ++b) { const int x = 28 + b * 81; knob[b].setBounds(x, 316, 72, 84); solo[b]->setBounds(x + 24, 402, 24, 20); }
         linkedStrip.setBounds(28, 432, 234, 26); linear.setBounds(30, 470, 220, 24);
-        scDisp.setBounds(34, 568, 222, 26); scTrig.setBounds(34, 602, 226, 24);
         // middle
         for (size_t i = 0; i < tools.size(); ++i) { const int x = i < 5 ? 292 + (int) i * 34 : 468 + ((int) i - 5) * 34; tools[i]->setBounds(x, 66, 30, 30); }
         snapChip.setBounds(612, 66, 60, 30); gridChip.setBounds(674, 66, 72, 30); swingChip.setBounds(748, 66, 104, 30);
@@ -937,12 +1039,16 @@ struct Content : public juce::Component
         specMode.setBounds(722, 486, 130, 22); spectrum.setBounds(292, 512, 560, 128);
         // right
         amount.setBounds(900, 96, 190, 196); meters.setBounds(880, 312, 232, 322);
+        // drive and loudness row
+        for (int k = 0; k < 6; ++k) dknob[k].setBounds(40 + k * 92, 686, 84, 72);
+        dknob[6].setBounds(706, 680, 110, 80);
         // bottom
-        speed.setBounds(102, 664, 84, 46); spPrev.setBounds(74, 670, 26, 34); spNext.setBounds(190, 670, 26, 34); syncStrip.setBounds(222, 674, 68, 26);
-        trigBox.setBounds(352, 672, 90, 30); lock.setBounds(446, 672, 30, 30); thresh.setBounds(480, 672, 82, 30);
-        driveBox.setBounds(622, 672, 54, 30); driveChip.setBounds(680, 670, 48, 34);
-        limOn.setBounds(784, 672, 32, 30); ceilChip.setBounds(818, 670, 58, 34);
-        smoothChip.setBounds(926, 670, 34, 34); offsetChip.setBounds(1020, 670, 44, 34); offUnit.setBounds(1068, 674, 50, 26);
+        const int by = 120;
+        speed.setBounds(102, 664 + by, 84, 46); spPrev.setBounds(74, 670 + by, 26, 34); spNext.setBounds(190, 670 + by, 26, 34); syncStrip.setBounds(222, 674 + by, 68, 26);
+        trigBox.setBounds(352, 672 + by, 90, 30); lock.setBounds(446, 672 + by, 30, 30); thresh.setBounds(480, 672 + by, 82, 30);
+        scTrig.setBounds(582, 674 + by, 146, 26);
+        limOn.setBounds(784, 672 + by, 32, 30); ceilChip.setBounds(818, 670 + by, 58, 34);
+        smoothChip.setBounds(926, 670 + by, 34, 34); offsetChip.setBounds(1020, 670 + by, 44, 34); offUnit.setBounds(1068, 674 + by, 50, 26);
     }
 
     void paint(juce::Graphics& g) override
@@ -952,15 +1058,17 @@ struct Content : public juce::Component
         g.setColour(Colours::accent()); g.setFont(juce::FontOptions(22.f, juce::Font::bold)); g.drawText("SCAREDY CAT", 64, 5, 250, 26, juce::Justification::left);
         g.setColour(Colours::dim()); g.setFont(juce::FontOptions(11.5f)); g.drawText("ducks when the kick hits", 64, 30, 250, 14, juce::Justification::left);
         auto panel = [&](juce::Rectangle<int> r) { g.setColour(card()); g.fillRoundedRectangle(r.toFloat(), 8.f); };
-        panel({ 14, 62, 262, 580 }); panel({ 868, 62, 254, 580 }); panel({ 14, 648, 1108, 76 });
+        panel({ 14, 62, 262, 580 }); panel({ 868, 62, 254, 580 }); panel({ 14, 648, 1108, 112 }); panel({ 14, 768, 1108, 76 });
         g.setColour(well()); g.fillRoundedRectangle(24.f, 520.f, 242.f, 112.f, 7.f);
         g.setFont(juce::FontOptions(12.5f, juce::Font::bold));
         g.setColour(title()); g.drawText("MULTIBAND", 28, 70, 90, 24, juce::Justification::left); g.drawText("BAND AMOUNTS", 28, 282, 234, 16, juce::Justification::centred);
-        g.drawText("AMOUNT", 868, 70, 254, 18, juce::Justification::centred); g.drawText("SIDECHAIN", 34, 526, 120, 16, juce::Justification::left);
-        g.setColour(Colours::text()); g.setFont(juce::FontOptions(12.f)); g.drawText("Slope", 28, 104, 50, 26, juce::Justification::left); g.drawText("Display", 34, 546, 100, 18, juce::Justification::left);
+        g.drawText("AMOUNT", 868, 70, 254, 18, juce::Justification::centred); g.drawText("WHAT YOU SEE", 34, 526, 160, 16, juce::Justification::left);
+        g.setColour(Colours::text()); g.setFont(juce::FontOptions(12.f)); g.drawText("Slope", 28, 104, 50, 26, juce::Justification::left);
+        g.setColour(Colours::dim()); g.setFont(juce::FontOptions(11.5f));
+        g.drawFittedText("Dashed: the original sound.\nFill: what the ducking removes.\nLevel view: dB lost per band.\nThe sidechain only triggers.", 34, 548, 226, 78, juce::Justification::topLeft, 6);
         g.drawText("Envelopes", 28, 296, 1, 1, juce::Justification::left);
         g.setColour(title()); g.setFont(juce::FontOptions(12.5f, juce::Font::bold)); g.drawText("BAND SPECTRUM", 292, 488, 200, 18, juce::Justification::left);
-        g.setColour(Colours::dim()); g.setFont(juce::FontOptions(10.5f)); g.drawText("dashed: before ducking   filled: after", 500, 488, 220, 18, juce::Justification::right);
+        g.setColour(Colours::dim()); g.setFont(juce::FontOptions(10.5f)); g.drawText("dashed: original   filled: removed", 500, 488, 220, 18, juce::Justification::right);
         for (int b = 0; b < 3; ++b)
         {
             const int x = 28 + b * 81; g.setColour(juce::Colour(0xff111130)); g.fillRoundedRectangle((float) x, 298.f, 72.f, 126.f, 7.f);
@@ -974,18 +1082,28 @@ struct Content : public juce::Component
         g.setColour(Colours::dim()); g.drawText("GR", 1000, 288, 24, 18, juce::Justification::left); g.setColour(hotRed()); g.drawText("-" + juce::String(gr, 1), 1024, 288, 56, 18, juce::Justification::left);
         // bottom labels and group frames
         g.setFont(juce::FontOptions(11.f, juce::Font::bold)); g.setColour(Colours::dim());
-        g.drawText("SPEED", 26, 678, 48, 18, juce::Justification::left); g.drawText("TRIGGER", 298, 678, 54, 18, juce::Justification::left);
+        g.drawText("SPEED", 26, 798, 48, 18, juce::Justification::left); g.drawText("TRIGGER", 298, 798, 54, 18, juce::Justification::left);
+        {   // drive row
+            static const char* dn[7] = { "TUBE", "TAPE", "SOFT", "DRIVE", "TRANS", "FUZZ", "LOUDNESS" };
+            const juce::Colour dcol[7] = { catui::SodaPop::amber(), catui::SodaPop::orange(), catui::SodaPop::mint(), catui::SodaPop::aqua(), catui::SodaPop::orchid(), catui::SodaPop::hotPink(), catui::SodaPop::periwinkle() };
+            g.setColour(title()); g.setFont(juce::FontOptions(12.5f, juce::Font::bold)); g.drawText("DRIVE: six stages in series, mix any of them", 26, 652, 560, 18, juce::Justification::left); g.drawText("LOUDNESS", 706, 652, 110, 18, juce::Justification::centred);
+            g.setColour(Colours::dim().withAlpha(0.5f)); g.drawVerticalLine(660, 656.f, 752.f); g.drawVerticalLine(836, 656.f, 752.f);
+            g.setFont(juce::FontOptions(11.5f, juce::Font::bold));
+            for (int k = 0; k < 6; ++k) { g.setColour(dcol[k]); g.drawText(dn[k], 40 + k * 92, 670, 84, 14, juce::Justification::centred); }
+            g.setColour(Colours::dim()); g.setFont(juce::FontOptions(11.5f));
+            g.drawFittedText("Order: Soft, Tape, Tube, Drive, Transistor, Fuzz. Each stage keeps the level about the same. Drive, Transistor and Fuzz are the PurrOne stages and get nasty above 80 %.\n\nLoudness: a smooth opto leveller plus a hidden soft clipper before the limiter. 0 % is off.", 848, 656, 264, 96, juce::Justification::topLeft, 8);
+        }
         auto frame = [&](juce::Rectangle<int> r, juce::Colour c, const juce::String& t, int tw)
-        { g.setColour(c.withAlpha(0.8f)); g.drawRoundedRectangle(r.toFloat().reduced(0.5f), 7.f, 1.4f); g.setColour(Colours::dim()); g.drawText(t, r.getX() + 8, r.getY() + 14, tw, 18, juce::Justification::left); };
-        frame({ 572, 662, 160, 50 }, catui::SodaPop::amber(), "DRIVE", 44); frame({ 738, 662, 140, 50 }, catui::SodaPop::orange(), "LIMIT", 40);
-        frame({ 884, 662, 78, 50 }, catui::SodaPop::mint(), "SMTH", 34); frame({ 968, 662, 154, 50 }, catui::SodaPop::aqua(), "OFFSET", 44);
+        { g.setColour(c.withAlpha(0.8f)); g.drawRoundedRectangle(r.toFloat().reduced(0.5f), 7.f, 1.4f); g.setColour(Colours::dim()); if (tw > 0) g.drawText(t, r.getX() + 8, r.getY() + 14, tw, 18, juce::Justification::left); };
+        frame({ 572, 782, 160, 50 }, catui::SodaPop::hotPink(), "", 0); frame({ 738, 782, 140, 50 }, catui::SodaPop::orange(), "LIMIT", 40);
+        frame({ 884, 782, 78, 50 }, catui::SodaPop::mint(), "SMTH", 34); frame({ 968, 782, 154, 50 }, catui::SodaPop::aqua(), "OFFSET", 44);
     }
 };
 }   // namespace
 
 struct ScaredyEditor::Impl
 {
-    ScaredyLAF laf; Content content; juce::TooltipWindow tips;
+    ScaredyLAF laf; Content content; juce::TooltipWindow tips; std::unique_ptr<juce::ResizableBorderComponent> border;
     Impl(ScaredyEditor& e, Scaredy& p) : content(e, p), tips(&e, 1000) {}
 };
 
@@ -994,10 +1112,13 @@ ScaredyEditor::ScaredyEditor(Scaredy& p) : AudioProcessorEditor(&p)
     impl = std::make_unique<Impl>(*this, p);
     setLookAndFeel(&impl->laf);
     addAndMakeVisible(impl->content);
-    setResizable(true, true);
-    setResizeLimits(590, 368, 2360, 1472);
+    setResizable(true, false);   // every edge and corner (the border below), fixed aspect, 60 % to 200 %
+    setResizeLimits(kMinW, (int) std::lround((double) kMinW * kBaseH / kBaseW), kMaxW, (int) std::lround((double) kMaxW * kBaseH / kBaseW));
     if (auto* c = getConstrainer()) c->setFixedAspectRatio((double) kBaseW / (double) kBaseH);
-    const int w = juce::jlimit(590, 2360, (int) p.getProp("uiw", kBaseW));
+    impl->border = std::make_unique<juce::ResizableBorderComponent>(this, getConstrainer());
+    impl->border->setBorderThickness(juce::BorderSize<int>(6));
+    addAndMakeVisible(*impl->border);
+    const int w = juce::jlimit(kMinW, kMaxW, (int) p.getProp("uiw", kBaseW));
     setSize(w, (int) std::lround((double) w * kBaseH / kBaseW));
 }
 ScaredyEditor::~ScaredyEditor() { setLookAndFeel(nullptr); }
@@ -1011,6 +1132,7 @@ void ScaredyEditor::resized()
     if (impl == nullptr) return;
     const float s = (float) getWidth() / (float) kBaseW;
     impl->content.setBounds(0, 0, kContentW, kBaseH);
+    if (impl->border != nullptr) { impl->border->setBounds(getLocalBounds()); impl->border->toFront(false); }
     impl->content.setTransform(juce::AffineTransform::scale(s).translated((float) kCheek * s, 0.f));
     if (auto* pr = dynamic_cast<Scaredy*>(&processor)) pr->setProp("uiw", getWidth());
 }

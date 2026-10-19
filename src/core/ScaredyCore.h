@@ -2,11 +2,13 @@
 // Original code, AGPL-3.0-or-later. No allocation after prepare(), no locks, no I/O, no network.
 //
 // Signal path
-//   input -> drive (2x oversampled smooth shaper) -> split in 3 bands (Linkwitz-Riley 12/24/48 dB, or linear phase) ->
-//   band gain from its envelope (depth = AMOUNT x band amount) -> sum -> lookahead limiter -> hidden soft clipper (2x) -> mix with delayed dry.
+//   input -> drive (2x oversampled, six mixable stages: Soft, Tape, Tube, PurrOne Drive, Transistor, Fuzz) ->
+//   split in 3 bands (Linkwitz-Riley 12/24/48 dB, or linear phase) -> band gain from its envelope (depth = AMOUNT x band amount) -> sum ->
+//   Loudness (LA-2A style opto + hidden soft clipper at the limiter ceiling, dry/wet) -> lookahead limiter -> mix with delayed dry.
 //   AMOUNT = 0 is an exact bypass (the delayed input, bit for bit); 100 is the full envelope depth.
 #pragma once
 #include "ScaredyEnv.h"
+#include "PurrColour.h"
 #include <atomic>
 #include <cstring>
 
@@ -25,7 +27,8 @@ struct Params
     bool scTrigger = false; double threshDb = -24.0;                        // hit detection (sidechain input when scTrigger)
     double swing = 0.0, smooth = 4.0;                                       // percent
     double offset = 0.0; bool offsetSamples = false;                        // milliseconds or samples (positive = later)
-    double drive = 0.0; int driveType = 0;                                  // percent; 0 tube, 1 tape, 2 soft
+    double dTube = 0.0, dTape = 0.0, dSoft = 0.0, dDrive = 0.0, dTrans = 0.0, dFuzz = 0.0;   // percent, six drive stages in series
+    double loud = 0.0;                                                      // percent: Loudness (opto + hidden clipper, dry/wet)
     bool limOn = true; double ceilDb = -0.3;
     int solo = 0;                                                           // 0 off, 1 low, 2 mid, 3 high
 };
@@ -113,6 +116,27 @@ inline double softClipK(double x, double knee, double ceil)
     return std::copysign(knee + (ceil - knee) * std::tanh((a - knee) / (ceil - knee)), x);
 }
 
+inline double dbToLin(double db) { return std::pow(10.0, db * 0.05); }
+// LA-2A style opto leveller (two-stage release with memory), same behaviour as the Meowximizer one. amount 0..1.
+struct Opto
+{
+    double gr1 = 0, gr2 = 0, mem = 0, env = 0;
+    void reset() { gr1 = gr2 = mem = env = 0; }
+    double gain(double peak, double amount, double fs)
+    {
+        const double p = std::min(1.0, std::max(0.0, amount)), k = 1.0 - std::exp(-1.0 / (0.0015 * fs));
+        env += k * (peak - env);
+        const double db = 20.0 * std::log10(std::max(1e-9, env)), thr = -6.0 - 30.0 * p, knee = 12.0, over = db - thr;
+        double target = 0.0;
+        if (over > knee * 0.5) target = over * (2.0 / 3.0);
+        else if (over > -knee * 0.5) { const double t = over + knee * 0.5; target = (2.0 / 3.0) * t * t / (2.0 * knee); }
+        const double att = 1.0 - std::exp(-1.0 / (0.010 * fs)), rel1 = 1.0 - std::exp(-1.0 / (0.0866 * fs)), tau2 = 1.0 + 4.0 * mem, rel2 = 1.0 - std::exp(-1.0 / (tau2 * fs));
+        gr1 += (target > gr1 ? att : rel1) * (target - gr1); gr2 += (target > gr2 ? att : rel2) * (target - gr2);
+        mem += (1.0 - std::exp(-1.0 / (2.0 * fs))) * (std::min(1.0, std::max(0.0, 0.5 * (gr1 + gr2) / 15.0)) - mem);
+        return dbToLin(-0.5 * (gr1 + gr2) + 6.0 * p);
+    }
+};
+
 class Engine
 {
 public:
@@ -130,11 +154,11 @@ public:
     {
         for (int c = 0; c < 2; ++c)
         {
-            ovD[c].reset(); ovC[c].reset(); dcD[c] = 0.0; dcAcc[c] = 0.0;
+            ovD[c].reset(); ovC[c].reset(); dcD[c] = 0.0; dcAcc[c] = 0.0; fz[c] = 0.0; std::memset(loudDry[c], 0, sizeof loudDry[c]);
             for (auto* st : { lp1[c], hp1[c], lp2[c], hp2[c], lpc[c], hpc[c] }) for (int k = 0; k < 4; ++k) st[k].reset();
             std::memset(linBuf[c], 0, sizeof linBuf[c]); std::memset(dryBuf[c], 0, sizeof dryBuf[c]); std::memset(limBuf[c], 0, sizeof limBuf[c]);
         }
-        linPos = 0; dryPos = 0; limPos = 0;
+        linPos = 0; dryPos = 0; limPos = 0; loudPos = 0; opto.reset(); ld = 0.0; mkSm = 1.0; for (auto& v : mkS) v = 1.0;
         std::memset(tgt, 0, sizeof tgt); std::memset(mins, 0, sizeof mins); for (auto& v : tgt) v = 1.0; for (auto& v : mins) v = 1.0;
         gRel = 1.0; limMix = 1.0; phase = 1.0; sinceHit = 1e12; holdoff = 0; e2 = 0.0; active = false;
         for (int b = 0; b < 3; ++b) { gs[b] = 1.0; pk[b] = 0.0; pkPost[b] = 0.0; }
@@ -164,11 +188,26 @@ public:
         const float* L0 = lane(0); const float* L1 = lane(1); const float* L2 = lane(2);
         const double depthM = std::min(1.0, std::max(0.0, p.amount * 0.01));
         const double wTarget = p.amount > 0.0 ? 1.0 : 0.0;
-        if (! initialised) { wMix = wTarget; for (int b = 0; b < 3; ++b) depth[b] = 0.0; dpth = p.drive; initialised = true; for (int b = 0; b < 3; ++b) depth[b] = bandAmt(p, b) * depthM; }
+        if (! initialised) { wMix = wTarget; for (int b = 0; b < 3; ++b) depth[b] = 0.0; for (int k = 0; k < 6; ++k) drv[k] = driveTarget(p, k); ld = p.loud * 0.01; mkSm = 1.0; initialised = true; for (int b = 0; b < 3; ++b) depth[b] = bandAmt(p, b) * depthM; }
         const double stepW = 1.0 / (0.02 * fs), rampN = 1.0 / (0.015 * fs);
         const bool hostLock = p.sync && t.havePpq && t.playing && p.trigger == 0;
         const double ppqStep = bpm / 60.0 / fs;
         double wavePk = wavePkAcc; int waveCol = waveColCur;
+        {   // level match of the smooth stages (RMS of a sine, like PurrOne): once per block, smoothed below
+            static const int ty[3] = { 2, 1, 0 };
+            for (int j = 0; j < 3; ++j)
+            {
+                const double d = driveTarget(p, j) * 0.01, g = 1.0 + 11.0 * d * d, kq = std::min(1.0, d * 4.0); double a = 0, b = 0;
+                if (d > 1e-4) for (int q = 0; q < 48; ++q) { const double x = 0.3 * std::sin(2.0 * kPi * q / 48.0), o = x + kq * (driveShape(ty[j], g * x) - x); a += x * x; b += o * o; }
+                mkT[j] = (d > 1e-4 && b > 1e-12) ? std::min(4.0, std::max(0.25, std::sqrt(a / b))) : 1.0;
+                mkS[j] += (mkT[j] - mkS[j]) * (1.0 - std::exp(-(double) n / (0.02 * fs)));
+            }
+        }
+        {   // level match of the PurrOne stages: once per block, then smoothed (about 20 ms)
+            const float pd = (float) (driveTarget(p, 3) * 0.01), pt = (float) (driveTarget(p, 4) * 0.01), pf = (float) (driveTarget(p, 5) * 0.01);
+            const double mt = (pd > 1e-4f || pt > 1e-4f || pf > 1e-4f) ? (double) catfx::purr::makeup(pd, pt, pf, 0.3f) : 1.0;
+            mkSm += (mt - mkSm) * (1.0 - std::exp(-(double) n / (0.02 * fs)));
+        }
         for (int i = 0; i < n; ++i)
         {
             double xl = (double) l[i], xr = (double) r[i];
@@ -212,17 +251,36 @@ public:
 
             // parameter ramps
             for (int b = 0; b < 3; ++b) { const double tg = bandAmt(p, b) * depthM; depth[b] += std::max(-rampN, std::min(rampN, tg - depth[b])); }
-            dpth += std::max(-rampN * 100.0, std::min(rampN * 100.0, p.drive - dpth));
+            for (int k = 0; k < 6; ++k) drv[k] += std::max(-rampN * 100.0, std::min(rampN * 100.0, driveTarget(p, k) - drv[k]));
             if (wMix < wTarget) wMix = std::min(wTarget, wMix + stepW); else if (wMix > wTarget) wMix = std::max(wTarget, wMix - stepW);
 
-            // drive (2x oversampled)
+            // drive (2x oversampled): Soft, Tape, Tube (smooth) then PurrOne Drive, Transistor, Fuzz, in series. Level stays about the same.
             double yl = xl, yr = xr;
             {
-                const double d = std::min(1.0, std::max(0.0, dpth * 0.01)), g = 1.0 + 11.0 * d * d, k = std::min(1.0, d * 4.0);
-                const double ref = std::abs(driveShape(p.driveType, g * 0.35)), mk = ref > 1e-6 ? 0.35 / ref : 1.0;
                 double a0, a1, b0, b1;
                 ovD[0].up(xl, a0, a1); ovD[1].up(xr, b0, b1);
-                auto sh = [&](double x, int c) { const double s = mk * driveShape(p.driveType, g * x); const double o = x + k * (s - x); dcD[c] += 0.0004 * ((o - x) - dcD[c]); return o - dcD[c]; };
+                double gk[3], kk[3], mk[3];
+                const int types[3] = { 2, 1, 0 };
+                for (int j = 0; j < 3; ++j)
+                {
+                    const double d = drv[j] * 0.01; gk[j] = 1.0 + 11.0 * d * d; kk[j] = std::min(1.0, d * 4.0);
+                    mk[j] = mkS[j];
+                }
+                const float pd = (float) (drv[3] * 0.01), pt = (float) (drv[4] * 0.01), pf = (float) (drv[5] * 0.01);
+                const bool purr = pd > 1e-4f || pt > 1e-4f || pf > 1e-4f;
+                const double mkP = purr ? mkSm : 1.0;
+                const double fzA = 1.0 - std::exp(-2.0 * kPi * 11000.0 / (2.0 * fs)), fzMix = std::min(1.0, 0.8 * (double) pf);
+                auto sh = [&](double x, int c)
+                {
+                    double o = x;
+                    for (int j = 0; j < 3; ++j) if (drv[j] > 0.01) { const double s2 = mk[j] * driveShape(types[j], gk[j] * o); o = o + kk[j] * (s2 - o); }
+                    if (purr)
+                    {
+                        o = mkP * (double) catfx::purr::shaper((float) o, pd, pt, pf);
+                        if (pf > 1e-4f) { fz[c] += fzA * (o - fz[c]); o += fzMix * (fz[c] - o); }
+                    }
+                    dcD[c] += 0.0004 * ((o - x) - dcD[c]); return o - dcD[c];
+                };
                 const double s0l = sh(a0, 0), s0r = sh(b0, 1), s1l = sh(a1, 0), s1r = sh(b1, 1);
                 yl = ovD[0].down(s0l, s1l); yr = ovD[1].down(s0r, s1r);
             }
@@ -250,8 +308,23 @@ public:
             }
             if (! std::isfinite(outL) || ! std::isfinite(outR)) { reset(); outL = outR = 0.0; }
 
-            // lookahead limiter (always delays by `look` so the latency never changes)
+            // Loudness: LA-2A style opto + hidden soft clipper at the limiter ceiling, dry/wet. 0 % is the delayed signal, bit for bit.
             double ll = outL, lr = outR;
+            {
+                const double lt = std::min(1.0, std::max(0.0, p.loud * 0.01)); ld += std::max(-stepW, std::min(stepW, lt - ld));
+                loudDry[0][loudPos & 63] = outL; loudDry[1][loudPos & 63] = outR;
+                const double dryL = loudDry[0][(loudPos - kOsLatency) & 63], dryR = loudDry[1][(loudPos - kOsLatency) & 63];
+                ++loudPos;
+                const double go = opto.gain(std::max(std::abs(outL), std::abs(outR)), 0.5 * ld, fs) * dbToLin(12.0 * ld);
+                double c0, c1, d0, d1;
+                ovC[0].up(outL * go, c0, c1); ovC[1].up(outR * go, d0, d1);
+                const double kn = 0.72 * ceilLin;
+                const double wl = ovC[0].down(softClipK(c0, kn, ceilLin), softClipK(c1, kn, ceilLin));
+                const double wr = ovC[1].down(softClipK(d0, kn, ceilLin), softClipK(d1, kn, ceilLin));
+                const double m = std::min(1.0, ld * 1.5);
+                ll = dryL * (1.0 - m) + wl * m; lr = dryR * (1.0 - m) + wr * m;
+            }
+            // lookahead limiter (always delays by `look` so the latency never changes)
             {
                 limBuf[0][limPos] = ll; limBuf[1][limPos] = lr;
                 const double peak = std::max(std::abs(ll), std::abs(lr));
@@ -270,13 +343,8 @@ public:
                 limPos = (limPos + 1) & (kLim - 1);
                 grNow = std::max(grNow * 0.9995, -20.0 * std::log10(std::max(1e-4, gain)));
             }
-            // hidden soft clipper, 2x oversampled
-            double c0, c1, d0, d1;
-            ovC[0].up(ll, c0, c1); ovC[1].up(lr, d0, d1);
-            const double wl = ovC[0].down(softClipK(c0, 0.7, 0.97), softClipK(c1, 0.7, 0.97));
-            const double wr = ovC[1].down(softClipK(d0, 0.7, 0.97), softClipK(d1, 0.7, 0.97));
-            l[i] = (float) (dl * (1.0 - wMix) + wl * wMix);
-            r[i] = (float) (dr * (1.0 - wMix) + wr * wMix);
+            l[i] = (float) (dl * (1.0 - wMix) + ll * wMix);
+            r[i] = (float) (dr * (1.0 - wMix) + lr * wMix);
         }
         wavePkAcc = wavePk; waveColCur = waveCol;
         mPhase.store((float) phase, std::memory_order_relaxed);
@@ -293,17 +361,23 @@ private:
     Biquad lp1[2][4], hp1[2][4], lp2[2][4], hp2[2][4], lpc[2][4], hpc[2][4];
     double coefKey = -1.0; int nbUsed = 1; double polarity = 1.0;
     Oversampler2x ovD[2], ovC[2];
-    double dcD[2], dcAcc[2];
+    double dcD[2], dcAcc[2], fz[2];
+    double mkT[3] { 1, 1, 1 }, mkS[3] { 1, 1, 1 }; double drv[6] { 0, 0, 0, 0, 0, 0 }, ld = 0.0, mkSm = 1.0; Opto opto; double loudDry[2][64]; int loudPos = 0;
     double scratch[kMaxLin];
     float linBuf[2][2 * kRing]; int linPos = 0; float k1[kMaxLin], k2[kMaxLin]; int linN = 0; double linKey = -1.0;
     float dryBuf[2][kDryRing]; int dryPos = 0;
     double limBuf[2][kLim]; int limPos = 0; double tgt[kLim], mins[kLim]; double gRel = 1.0, limMix = 1.0, grNow = 0.0;
     double phase = 1.0, sinceHit = 1e12, e2 = 0.0; int holdoff = 0; bool active = false;
-    double gs[3] { 1, 1, 1 }, pk[3] { 0, 0, 0 }, pkPost[3] { 0, 0, 0 }, depth[3] { 0, 0, 0 }, dpth = 0.0, wMix = 0.0;
+    double gs[3] { 1, 1, 1 }, pk[3] { 0, 0, 0 }, pkPost[3] { 0, 0, 0 }, depth[3] { 0, 0, 0 }, wMix = 0.0;
     double wavePkAcc = 0.0; int waveColCur = 0;
 
     static double bandAmt(const Params& p, int b) { return p.multiband ? (b == 0 ? p.amtLo : b == 1 ? p.amtMid : p.amtHi) * 0.01 : 1.0; }
 
+    static double driveTarget(const Params& p, int k)
+    {
+        const double v[6] = { p.dSoft, p.dTape, p.dTube, p.dDrive, p.dTrans, p.dFuzz };
+        return std::min(100.0, std::max(0.0, v[k]));
+    }
     static double driveShape(int type, double u)
     {
         switch (type)

@@ -3,7 +3,7 @@
 #include "core/ScaredyCore.h"
 
 // Scaredy Cat: a 3-band volume shaper (sidechain-style pump without needing a sidechain). Original design and code.
-// Drive > 3-band split > per-band envelopes > limiter > hidden soft clipper. AMOUNT 0 is an exact bypass.
+// Six-stage drive > 3-band split > per-band envelopes > Loudness (opto + hidden clipper) > limiter. AMOUNT 0 is an exact bypass.
 class Scaredy : public catfx::FxBase, private juce::AsyncUpdater, private juce::ValueTree::Listener
 {
 public:
@@ -12,6 +12,7 @@ public:
     void prepare(double sr, int maxBlock) override;
     void process(juce::AudioBuffer<float>&, const juce::AudioBuffer<float>*) override;
     juce::AudioProcessorEditor* createEditor() override;
+    void setStateInformation(const void*, int) override;   // migrates old Drive + type into the six drive knobs
     std::vector<Preset> presets() const override { return {}; }   // the editor has its own preset list (they carry the three envelopes too)
     juce::StringArray randomExclude() const override { return { "amount", "power" }; }
 
@@ -27,6 +28,12 @@ public:
     juce::StringArray userPresetNames() const;
     bool saveUserPreset(const juce::String& name);
     bool loadUserPreset(const juce::String& name);
+    // --- shape library (your own shapes, one small text file each) ---
+    juce::File shapeFolder() const;
+    juce::StringArray userShapeNames() const;
+    bool saveShape(const juce::String& name, const scaredy::Curve& c);
+    bool loadShape(const juce::String& name, scaredy::Curve& out) const;
+    bool deleteShape(const juce::String& name);
     // --- state kept next to the parameters ---
     juce::var getProp(const juce::String& k, const juce::var& def) const { return apvts.state.getProperty(k, def); }
     void setProp(const juce::String& k, const juce::var& v) { apvts.state.setProperty(k, v, nullptr); }
@@ -39,6 +46,7 @@ public:
     std::atomic<float> ring[3][kRing];                       // mono input, sidechain, output (newest at wpos - 1)
     std::atomic<unsigned> wpos { 0 };
     double sampleRate() const { return fs; }
+    int latency() const { return std::max(0, reportedLatency.load()); }
     static const std::vector<juce::String>& speedNames();
     static double speedBeats(int idx);
 
@@ -60,7 +68,7 @@ private:
     std::atomic<int> reportedLatency { -1 };
     bool ignoreState = false;
     // cached parameter pointers
-    std::atomic<float> *pAmount, *pLo, *pMid, *pHi, *pXlo, *pXhi, *pHz, *pSwing, *pSmooth, *pDrive, *pCeil, *pOffset, *pThresh,
-        *pSpeed, *pSync, *pTrig, *pSlope, *pMulti, *pLinear, *pDtype, *pLimon, *pOffunit, *pLinked, *pSolo, *pSctrig, *pPower;
+    std::atomic<float> *pAmount, *pLo, *pMid, *pHi, *pXlo, *pXhi, *pHz, *pSwing, *pSmooth, *pDTube, *pDTape, *pDSoft, *pDDrive, *pDTrans, *pDFuzz, *pLoud, *pCeil, *pOffset, *pThresh,
+        *pSpeed, *pSync, *pTrig, *pSlope, *pMulti, *pLinear, *pLimon, *pOffunit, *pLinked, *pSolo, *pSctrig, *pPower;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Scaredy)
 };

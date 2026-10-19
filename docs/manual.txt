@@ -4,7 +4,7 @@ Scaredy Cat is a volume shaper that makes your sound duck, pump or chop in time 
 # Quick start
 - Pick a preset close to what you want (Hardstyle kick pump, Sidechain house, Trance gate 1/16, UK hardcore chop).
 - Press play. The red line in the lanes shows where the cycle is. Set Speed to the note length you want (1/4 = one cycle per beat).
-- Draw: drag the round points, double click a lane to add a point, right click a point to delete it. Hold Alt and drag up or down on a lane to bend a segment.
+- Draw: drag the round points, double click a lane to add a point, right click a point to delete it. Drag the line between two points up or down to bend it (hold Alt or Ctrl to bend from anywhere in the lane).
 - Raise or lower AMOUNT for the overall depth, and the Low, Mid and High knobs to leave a band alone (0 %) or fully shaped (100 %).
 - If the pump is early or late against your kick, move Offset until it lines up.
 - Prefer the sound of a hit, not the tempo? Set Trigger to Input hit: every loud hit restarts the envelope.
@@ -12,20 +12,28 @@ Scaredy Cat is a volume shaper that makes your sound duck, pump or chop in time 
 # Window
 - Three lanes: HIGH on top, MID in the middle, LOW at the bottom. Each lane is the volume of that band over one cycle; the scale on the left is in dB (top is 0 dB, no change).
 - The faint grey bars behind the lanes are your input folded over the cycle, so you can see where the kick hits.
-- Under the lanes: shape buttons (Pump, Gate, Swell, Ramp up, Step, Wave, Ramp down, V) and More (trance gate, offbeat pump, random steps, tremolo, reverse, flip, copy to all lanes).
+- Under the lanes: shape buttons (Pump click-free, Gate, Swell, Ramp up, Step, Wave, Ramp down, V) and the Shapes library: every built in shape and your own, each with a small picture, plus reverse, flip, copy to all lanes and new random steps. The + button saves the selected lane as your own shape; the - button deletes one of yours after asking you to confirm. Your shapes are small files in the Studio 87 ScaredyCat shapes folder.
+- The first shape, Pump click-free, rises on a curve, holds, and drops back in a short ramp so the end of the loop joins the start with no click.
 - The tool row above the lanes: select and move, draw a ramp up, ramp down, hold or step by dragging across a lane, delete, select all, and move the selection or the whole lane left and right by one grid step.
 - Snap, Grid and Swing sit at the right end of the tool row. Hold Ctrl while dragging to move freely.
-- Left: the crossover graph (drag the white lines to move the crossovers), Slope, the three band amounts with Solo buttons, Linked or Unlinked envelopes, Linear phase, and the sidechain options.
-- Band spectrum: the sound by frequency at each band's range, dashed before the ducking and filled after. Switch to Level to see each band's peak level in dB.
+- Left: the crossover graph (drag the white lines, the small arrows show they move, to change the crossovers; double click a line to reset it), Slope, the three band amounts with Solo buttons, Linked or Unlinked envelopes, Linear phase, and the sidechain options.
+- Band spectrum: the original sound by frequency (dashed) and, filled in each band's colour, what the ducking takes away from it. Switch to Level to see how many dB each band loses. The sidechain input only triggers the envelope; it is not drawn.
 - Right: the big AMOUNT knob, the output level (OUT) and the biggest gain reduction (GR) in dB, output meters and one gain reduction meter per band.
-- Bottom bar: Speed (a note length when Sync is on, Hz when off), Trigger, Drive, Limit, Smooth and Offset. The padlock locks the envelopes so a stray click cannot change them.
+- Bottom bar: Speed (a note length when Sync is on, Hz when off), Trigger, the sidechain trigger switch, Limit, Smooth and Offset. The padlock locks the envelopes so a stray click cannot change them.
 - Hover a control for about one second to see an info bubble. Turn bubbles off with the round i button in the header.
 - Save stores your settings and all three envelopes as your own preset in the Studio 87 presets folder; they appear in the preset menu after the factory presets.
-- Resize the window from its bottom right corner; the 100% button returns to the normal size.
+- Resize the window by dragging any edge or corner (the shape stays the same, 60 % to 200 %); the 100% button returns to the normal size, and the size is remembered.
+
+# Drive and Loudness
+- The row above the bottom bar has six drive knobs, 0 to 100 %: Tube, Tape, Soft, then the PurrOne stages Drive, Transistor and Fuzz. They run in series in that order, so you can mix any of them. Each stage keeps the level about the same, so more drive changes the tone, not the volume. Drive, Transistor and Fuzz get nastier above 80 %. Double click a knob to set it back to 0 %.
+- Loudness makes the sound louder without pumping: a smooth opto leveller (LA-2A style) and a hidden soft clipper that sit before the limiter. The knob is the dry/wet and 0 % is off (the sound passes untouched).
+- Projects saved with the old single Drive knob load with the same amount on Tube, Tape or Soft.
 
 # Presets
 - Default
 - Hardstyle kick pump
+- Purr kick pump
+- Nasty chop
 - Sidechain house
 - Trance gate 1/16
 - Eighth-note pump
@@ -39,7 +47,7 @@ Scaredy Cat is a volume shaper that makes your sound duck, pump or chop in time 
 # Recommendations
 - Kick pump: Speed 1/4, shape Pump, Smooth 3 to 6 %. Keep the High band shallower than the Low band so the hats stay open while the bass ducks.
 - Bass only: set Mid and High to 0 % (or use the Bass-only duck preset) so only the low band pumps.
-- Trance gate: More, Trance gate x4, Speed 1/4 for sixteenth-note gates; raise Smooth until the clicks disappear.
+- Trance gate: Shapes, Trance gate x4, Speed 1/4 for sixteenth-note gates; raise Smooth until the clicks disappear.
 - No tempo, no kick to follow: Sync off and use Hz, or Trigger Input hit with the threshold just under your kick.
 - Smooth steps: sharp steps always click a little; Smooth rounds them. Linear phase is cleaner between bands but adds latency (about 8 to 24 ms at 48 kHz, depending on Slope), which your host compensates.
 - Compare with the plugin off (Power) at the same loudness: pumping makes things sound louder or quieter than they are.

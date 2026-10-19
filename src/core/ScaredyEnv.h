@@ -86,11 +86,24 @@ inline int insertPoint(Curve& cv, float x)
     return (int) i;
 }
 
+// Make the loop join without a jump: when the last point is far from the first, pull the end in and add a short ramp back to the start level.
+inline void wrapFix(Curve& cv, float tail = 0.03f)
+{
+    if (cv.size() < 2) return;
+    if (std::abs(cv.back().y - cv.front().y) < 0.02f) return;
+    const float y0 = cv.front().y;
+    if (cv.back().x > 1.f - tail) cv.back().x = 1.f - tail;
+    cv.push_back({ 1.f, y0, 0.f });
+    sanitize(cv);
+}
+// Worst jump between the end and the start of the loop (0 = joins perfectly).
+inline float wrapJump(const Curve& cv) { return cv.empty() ? 0.f : std::abs(evalCurve(cv, 1.f) - evalCurve(cv, 0.f)); }
+
 // Shape presets (the glyph row under the editor). lo = lowest gain (0 = fully ducked).
 constexpr int kNumShapes = 12;
 inline const char* shapeName(int id)
 {
-    static const char* n[kNumShapes] = { "Pump", "Gate", "Swell", "Ramp up", "Step", "Wave", "Ramp down", "V", "Trance gate x4", "Offbeat pump", "Random steps", "Tremolo" };
+    static const char* n[kNumShapes] = { "Pump, click-free", "Gate", "Swell", "Ramp up", "Step", "Wave", "Ramp down", "V", "Trance gate x4", "Offbeat pump", "Random steps", "Tremolo" };
     return n[std::max(0, std::min(kNumShapes - 1, id))];
 }
 inline Curve shapeCurve(int id, float lo = 0.f, unsigned seed = 1)
@@ -98,7 +111,7 @@ inline Curve shapeCurve(int id, float lo = 0.f, unsigned seed = 1)
     Curve c;
     switch (id)
     {
-        case 0: c = { { 0, lo, 0.5f }, { 0.6f, 1, 0 }, { 1, 1, 0 } }; break;
+        case 0: c = { { 0, lo, 0.5f }, { 0.45f, 1, 0 }, { 0.97f, 1, 0 }, { 1, lo, 0 } }; break;   // curved rise, hold, short drop back to the start level: the loop joins with no jump
         case 1: c = { { 0, lo, 0 }, { 0.5f, lo, 0 }, { 0.504f, 1, 0 }, { 1, 1, 0 } }; break;
         case 2: c = { { 0, lo, -0.6f }, { 1, 1, 0 } }; break;
         case 3: c = { { 0, lo, 0 }, { 1, 1, 0 } }; break;

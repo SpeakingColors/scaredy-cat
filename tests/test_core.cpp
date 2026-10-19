@@ -35,7 +35,7 @@ int main()
     // 1. null at 0%: output is the input delayed by the reported latency, bit for bit
     for (int mode = 0; mode < 2; ++mode)
     {
-        Engine e; e.prepare(fs); Params p; p.amount = 0.0; p.linear = mode == 1; p.drive = 60.0; tablesFor(tb, 0, 0.f);
+        Engine e; e.prepare(fs); Params p; p.amount = 0.0; p.linear = mode == 1; p.dTube = 60.0; p.dFuzz = 40.0; p.loud = 0.0; tablesFor(tb, 0, 0.f);
         std::vector<float> in(N), l, r; for (auto& v : in) v = u(rng); l = in; r = in; run(e, l, r, p, tm, tb);
         const int lat = e.latency(p); size_t bad = 0;
         for (size_t i = (size_t) lat; i < N; ++i) if (l[i] != in[i - (size_t) lat] || r[i] != in[i - (size_t) lat]) ++bad;
@@ -80,7 +80,7 @@ int main()
         std::uniform_real_distribution<float> big(-4.f, 4.f); size_t nan = 0; double mx = 0;
         for (int trial = 0; trial < 12; ++trial)
         {
-            Engine e; e.prepare(trial % 2 ? 44100.0 : 96000.0); Params p; p.amount = trial % 3 == 0 ? 100 : 37; p.drive = 100; p.driveType = trial % 3; p.slope = trial % 3; p.linear = trial % 4 == 3;
+            Engine e; e.prepare(trial % 2 ? 44100.0 : 96000.0); Params p; p.amount = trial % 3 == 0 ? 100 : 37; p.dTube = trial % 3 == 0 ? 100 : 0; p.dTape = trial % 3 == 1 ? 100 : 0; p.dSoft = trial % 3 == 2 ? 100 : 0; p.dDrive = 100; p.dTrans = 100; p.dFuzz = trial % 2 ? 100 : 0; p.loud = trial % 2 ? 100 : 40; p.slope = trial % 3; p.linear = trial % 4 == 3;
             p.xLo = 30 + 40 * trial; p.xHi = 1000 + 300 * trial; p.smooth = trial * 8; p.swing = trial * 8; p.trigger = trial % 2; p.threshDb = -40; p.offset = trial * 3; p.offsetSamples = trial % 2; p.sync = trial % 2 == 0; p.hz = 5; p.cycleBeats = 0.25;
             tablesFor(tb, trial % kNumShapes, 0.f);
             std::vector<float> l(48000), r; for (auto& v : l) v = big(rng); r = l; run(e, l, r, p, tm, tb);
@@ -112,6 +112,58 @@ int main()
     }
     // 7. curve text round trip
     { const Curve c = shapeCurve(8, 0.2f); const Curve d = curveFromString(curveToString(c)); CHECK(c.size() == d.size(), "curve round trip size"); }
+    // 8. round 3: shape 0 joins with no jump, drive knobs keep the level, Loudness is exact at 0 and louder at 100, every new knob changes the sound
+    {
+        const Curve c0 = shapeCurve(0, 0.f); CHECK(wrapJump(c0) < 0.01f, "default shape does not join: %.3f", (double) wrapJump(c0));
+        Curve old = { { 0, 0.f, 0.5f }, { 0.6f, 1, 0 }, { 1, 1, 0 } }; CHECK(wrapJump(old) > 0.9f, "sanity: the old shape jumps");
+        Curve fixd = old; wrapFix(fixd); CHECK(wrapJump(fixd) < 0.01f, "wrapFix did not join");
+        auto maxStep = [&](const Curve& cv)
+        {
+            std::vector<float> t3(3 * (size_t) (kTable + 1)); for (int b = 0; b < 3; ++b) bakeCurve(cv, t3.data() + b * (kTable + 1));
+            Engine e; e.prepare(fs); Params p; p.amount = 100; p.multiband = false; p.smooth = 4; p.limOn = false;
+            std::vector<float> l((size_t) (fs * 2.2), 0.5f), r; r = l; run(e, l, r, p, tm, t3);
+            float m = 0; for (size_t i = (size_t) fs / 2; i + 1 < l.size(); ++i) m = std::max(m, std::abs(l[i + 1] - l[i])); return m;
+        };
+        const float sNew = maxStep(c0), sOld = maxStep(old);
+        std::printf("loop click: biggest step %.4f (new default) vs %.4f (old shape)\n", (double) sNew, (double) sOld);
+        CHECK(sNew < 0.004f && sNew * 4.f < sOld, "default shape still clicks at the loop point");
+    }
+    {
+        flat(tb); std::vector<float> in(N); for (size_t i = 0; i < N; ++i) in[i] = 0.25f * (float) std::sin(2 * kPi * 110.0 * (double) i / fs) + 0.12f * (float) std::sin(2 * kPi * 1770.0 * (double) i / fs) + 0.05f * u(rng);
+        auto rmsOf = [&](const std::vector<float>& x) { double s = 0; for (size_t i = N / 2; i < x.size(); ++i) s += (double) x[i] * x[i]; return std::sqrt(s / (double) (x.size() - N / 2)); };
+        const double rin = rmsOf(in);
+        const char* nm[6] = { "tube", "tape", "soft", "drive", "transistor", "fuzz" };
+        std::vector<float> base = in; { Engine e; e.prepare(fs); Params p; p.multiband = false; p.limOn = false; std::vector<float> r = base; run(e, base, r, p, tm, tb); }
+        for (int k = 0; k < 6; ++k)
+        {
+            Engine e; e.prepare(fs); Params p; p.multiband = false; p.limOn = false;
+            double* d[6] = { &p.dTube, &p.dTape, &p.dSoft, &p.dDrive, &p.dTrans, &p.dFuzz }; *d[k] = 50.0;
+            std::vector<float> l = in, r = in; run(e, l, r, p, tm, tb);
+            bool ok = true; for (float v : l) if (! std::isfinite(v)) ok = false;
+            const double db = 20 * std::log10(rmsOf(l) / rin), diff = 20 * std::log10(1e-9 + [&] { double s = 0; for (size_t i = N / 2; i < l.size(); ++i) s += std::pow((double) l[i] - base[i], 2); return std::sqrt(s / (double) (N / 2)); }() / rin);
+            std::printf("drive %-10s 50%%: level %+.2f dB, change vs clean %.1f dB re input\n", nm[k], db, diff);
+            CHECK(ok, "NaN in drive %s", nm[k]); CHECK(std::abs(db) < 1.5, "drive %s level moved %.2f dB", nm[k], db); CHECK(diff > -30.0, "drive %s does not change the sound", nm[k]);
+        }
+        // Loudness: 0 % is the same as no loudness stage; 100 % is louder and never above the ceiling
+        std::vector<float> a = in, b2 = in, c = in;
+        { Engine e; e.prepare(fs); Params p; p.multiband = false; p.limOn = true; p.loud = 0.0; std::vector<float> r = a; run(e, a, r, p, tm, tb); }
+        { Engine e; e.prepare(fs); Params p; p.multiband = false; p.limOn = true; p.loud = 100.0; std::vector<float> r = b2; run(e, b2, r, p, tm, tb); }
+        { Engine e; e.prepare(fs); Params p; p.multiband = false; p.limOn = false; p.loud = 0.0; std::vector<float> r = c; run(e, c, r, p, tm, tb); }
+        double dmax = 0; for (size_t i = N / 2; i < a.size(); ++i) dmax = std::max(dmax, (double) std::abs(a[i] - c[i]));
+        float pkLoud = 0; for (size_t i = N / 2; i < b2.size(); ++i) pkLoud = std::max(pkLoud, std::abs(b2[i]));
+        const double gl = 20 * std::log10(rmsOf(b2) / rmsOf(a));
+        std::printf("loudness: 0%% vs limiter off differs by %.2g (quiet signal), 100%% is %+.1f dB, peak %.3f\n", dmax, gl, (double) pkLoud);
+        CHECK(dmax < 1e-6, "loud 0 is not transparent"); CHECK(gl > 3.0, "loudness 100 is not louder (%.1f dB)", gl); CHECK(pkLoud <= 0.9662f, "loudness broke the ceiling");
+        // every new knob changes the sound by itself
+        for (int k = 0; k < 7; ++k)
+        {
+            Engine e; e.prepare(fs); Params p; p.multiband = false; p.limOn = false;
+            double* d[7] = { &p.dTube, &p.dTape, &p.dSoft, &p.dDrive, &p.dTrans, &p.dFuzz, &p.loud }; *d[k] = 100.0;
+            std::vector<float> l = in, r = in; run(e, l, r, p, tm, tb);
+            double s = 0; for (size_t i = N / 2; i < l.size(); ++i) s += std::pow((double) l[i] - base[i], 2);
+            CHECK(std::sqrt(s / (double) (N / 2)) > 1e-3, "knob %d does nothing", k);
+        }
+    }
     std::printf(fails ? "\n%d FAILED\n" : "\nall passed\n", fails);
     return fails ? 1 : 0;
 }
