@@ -190,8 +190,9 @@ int main()
                 std::vector<float> l = in, r = in; run(e, l, r, p, tm, tb);
                 bool ok = true; for (float v : l) if (! std::isfinite(v)) ok = false;
                 const double db = 20 * std::log10(rmsTail(l) / rmsTail(ref));
-                std::printf("level staging %-5s %-10s %3d %%: %+.2f dB vs drive 0\n", sig ? "kick" : "bass", nm[k], lv ? 100 : 50, db);
-                CHECK(ok, "NaN in staging %s", nm[k]); CHECK(std::abs(db) < 0.5, "%s %s %d %% level moved %.2f dB", sig ? "kick" : "bass", nm[k], lv ? 100 : 50, db);
+                const double dbIn = 20 * std::log10(rmsTail(l) / rmsTail(in));
+                std::printf("level staging %-5s %-10s %3d %%: %+.2f dB vs drive 0, %+.2f dB vs input\n", sig ? "kick" : "bass", nm[k], lv ? 100 : 50, db, dbIn);
+                CHECK(ok, "NaN in staging %s", nm[k]); CHECK(std::abs(dbIn) < 0.5, "%s %s %d %% level vs input moved %.2f dB", sig ? "kick" : "bass", nm[k], lv ? 100 : 50, dbIn); CHECK(std::abs(db) < 0.5, "%s %s %d %% level moved %.2f dB", sig ? "kick" : "bass", nm[k], lv ? 100 : 50, db);
             }
         }
         // drive 0 must be untouched by the staging: identical to a run where the drive section never woke up
