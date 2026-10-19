@@ -361,9 +361,17 @@ public:
                 g.setColour(col.withAlpha(0.15f)); g.drawHorizontalLine((int) y, box.getX(), box.getRight());
                 g.setColour(col.withAlpha(0.95f)); g.drawText(gl[k], 0, (int) y - 5, 34, 10, juce::Justification::right);
             }
-            // the input folded over the cycle (faint)
-            { const float cw = box.getWidth() / 256.f; g.setColour(juce::Colours::white.withAlpha(0.07f));
-              for (int c = 0; c < 256; ++c) { const float a = std::sqrt(std::min(1.f, proc.engine.wave[c].load(std::memory_order_relaxed))) * in.getHeight() * 0.5f; g.fillRect(box.getX() + cw * (float) c, in.getCentreY() - a, std::max(1.f, cw - 0.3f), a * 2.f); } }
+            // the band folded over the cycle: pink = what the ducking removes, band colour = what is left (before: full bar, after: coloured bar)
+            { const float cw = box.getWidth() / 256.f, hh = in.getHeight() * 0.5f, cy = in.getCentreY(), w = std::max(1.f, cw - 0.3f);
+              for (int pass = 0; pass < 2; ++pass)
+              {
+                  g.setColour(pass == 0 ? hotRed().withAlpha(0.5f) : col.withAlpha(0.55f));
+                  for (int c = 0; c < 256; ++c)
+                  {
+                      const float v = (pass == 0 ? proc.engine.wavePre[b][c] : proc.engine.wavePost[b][c]).load(std::memory_order_relaxed);
+                      const float a = std::sqrt(std::min(1.f, v)) * hh; if (a > 0.2f) g.fillRect(box.getX() + cw * (float) c, cy - a, w, a * 2.f);
+                  }
+              } }
             g.saveState(); g.reduceClipRegion(box.toNearestInt());
             juce::Path line, fill;
             for (int i = 0; i <= 200; ++i)
@@ -703,7 +711,7 @@ public:
         const float f1 = xd.freq(0), f2 = xd.freq(1), x1 = r.getX() + r.getWidth() * freqToN(f1), x2 = r.getX() + r.getWidth() * freqToN(f2);
         const float xs[4] = { r.getX(), x1, x2, r.getRight() };
         for (int b = 0; b < 3; ++b) { g.setColour(bandCol(b).withAlpha(0.07f)); g.fillRect(xs[b], r.getY(), xs[b + 1] - xs[b], r.getHeight()); }
-        catfx::viz::dbAxis(g, r, level ? -60.f : -90.f, level ? 0.f : -10.f, level ? 12.f : 20.f); catfx::viz::freqAxis(g, r);
+        catfx::viz::dbAxis(g, r, level ? -60.f : -100.f, 0.f, level ? 12.f : 20.f); catfx::viz::freqAxis(g, r);
         g.setFont(juce::FontOptions(9.5f, juce::Font::bold));
         for (int b = 0; b < 3; ++b) { g.setColour(bandCol(b)); g.drawText(bandName(b), (int) xs[b] + 4, (int) r.getY() + 1, 40, 11, juce::Justification::left); }
         if (level) paintLevel(g, r, xs); else paintSpectrum(g, r, xs);
@@ -723,7 +731,7 @@ private:
         const float fa = nToFreq((x - 1.f) / r.getWidth()), fb = nToFreq((x + 1.f) / r.getWidth());
         const int b0 = juce::jlimit(1, N / 2 - 1, (int) std::floor(fa / binHz)), b1 = juce::jlimit(b0, N / 2 - 1, (int) std::ceil(fb / binHz));
         float db = -120.f; for (int k = b0; k <= b1; ++k) db = std::max(db, sm[src][k]);
-        return r.getBottom() - juce::jlimit(0.f, 1.f, (db + 90.f) / 80.f) * r.getHeight();
+        return r.getBottom() - juce::jlimit(0.f, 1.f, (db + 100.f) / 100.f) * r.getHeight();   // 0 to -100 dB, the original is never clipped flat
     }
     juce::Path trace(int src, juce::Rectangle<float> r) const
     {
@@ -740,9 +748,13 @@ private:
         for (size_t i = 1; i < yo.size(); ++i) rem.lineTo(r.getX() + 2.f * (float) i, yo[i]);
         for (size_t i = yo.size(); i-- > 0;) rem.lineTo(r.getX() + 2.f * (float) i, yb[i]);
         rem.closeSubPath();
+        juce::Path under; under.startNewSubPath(r.getX(), r.getBottom());
+        for (size_t i = 0; i < yo.size(); ++i) under.lineTo(r.getX() + 2.f * (float) i, yo[i]);
+        under.lineTo(r.getX() + 2.f * (float) (yo.size() - 1), r.getBottom()); under.closeSubPath();   // the whole original spectrum, filled faintly so the view looks full
         for (int b = 0; b < 3; ++b)
         {
             g.saveState(); g.reduceClipRegion(juce::Rectangle<float>(xs[b], r.getY(), xs[b + 1] - xs[b], r.getHeight()).toNearestInt());
+            g.setColour(bandCol(b).withAlpha(0.16f)); g.fillPath(under);
             g.setColour(bandCol(b).withAlpha(0.75f)); g.fillPath(rem); g.restoreState();
         }
         g.setColour(juce::Colours::white.withAlpha(0.35f)); g.strokePath(trace(2, r), juce::PathStrokeType(1.0f));

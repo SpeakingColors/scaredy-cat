@@ -164,6 +164,8 @@ public:
         for (int b = 0; b < 3; ++b) { gs[b] = 1.0; pk[b] = 0.0; pkPost[b] = 0.0; }
         coefKey = -1.0; linKey = -1.0; waveColCur = 0; wavePkAcc = 0.0; grNow = 0.0;
         for (auto& w : wave) w.store(0.f, std::memory_order_relaxed);
+        for (int b = 0; b < 3; ++b) { wavePreAcc[b] = 0.0; wavePostAcc[b] = 0.0; for (int c = 0; c < 256; ++c) { wavePre[b][c].store(0.f, std::memory_order_relaxed); wavePost[b][c].store(0.f, std::memory_order_relaxed); } }
+        dmIn = 0.0; dmOut = 0.0; dm = 1.0;
     }
     int latency(const Params& p) const { return latencyFor(fs, p.linear, p.slope); }
 
@@ -190,6 +192,7 @@ public:
         const double wTarget = p.amount > 0.0 ? 1.0 : 0.0;
         if (! initialised) { wMix = wTarget; for (int b = 0; b < 3; ++b) depth[b] = 0.0; for (int k = 0; k < 6; ++k) drv[k] = driveTarget(p, k); ld = p.loud * 0.01; mkSm = 1.0; initialised = true; for (int b = 0; b < 3; ++b) depth[b] = bandAmt(p, b) * depthM; }
         const double stepW = 1.0 / (0.02 * fs), rampN = 1.0 / (0.015 * fs);
+        const double aRms = 1.0 - std::exp(-1.0 / (0.25 * fs)), aMk = 1.0 - std::exp(-1.0 / (0.10 * fs));   // drive level staging: 250 ms RMS windows, 100 ms makeup smoothing
         const bool hostLock = p.sync && t.havePpq && t.playing && p.trigger == 0;
         const double ppqStep = bpm / 60.0 / fs;
         double wavePk = wavePkAcc; int waveCol = waveColCur;
@@ -246,7 +249,7 @@ public:
             v[2] = open ? 1.0 : L2[ix] + (L2[ix + 1] - L2[ix]) * fr;
             // display waveform folded over the cycle
             { const double ph = phase; const int col = std::min(255, std::max(0, (int) (ph * 256.0)));
-              if (col != waveCol) { wave[waveCol].store((float) wavePk, std::memory_order_relaxed); wavePk = 0.0; waveCol = col; }
+              if (col != waveCol) { wave[waveCol].store((float) wavePk, std::memory_order_relaxed); wavePk = 0.0; for (int b = 0; b < 3; ++b) { wavePre[b][waveCol].store((float) wavePreAcc[b], std::memory_order_relaxed); wavePost[b][waveCol].store((float) wavePostAcc[b], std::memory_order_relaxed); wavePreAcc[b] = 0.0; wavePostAcc[b] = 0.0; } waveCol = col; }
               wavePk = std::max(wavePk, std::max(std::abs(xl), std::abs(xr))); }
 
             // parameter ramps
@@ -284,6 +287,18 @@ public:
                 const double s0l = sh(a0, 0), s0r = sh(b0, 1), s1l = sh(a1, 0), s1r = sh(b1, 1);
                 yl = ovD[0].down(s0l, s1l); yr = ovD[1].down(s0r, s1r);
             }
+            {   // closed-loop level staging around the whole drive section: the output RMS follows the input RMS on real material
+                const bool dAct = drv[0] > 0.01 || drv[1] > 0.01 || drv[2] > 0.01 || drv[3] > 0.01 || drv[4] > 0.01 || drv[5] > 0.01;
+                dmIn += (0.5 * (xl * xl + xr * xr) - dmIn) * aRms; dmOut += (0.5 * (yl * yl + yr * yr) - dmOut) * aRms;
+                if (dAct || dm != 1.0)
+                {
+                    double tg = 1.0;
+                    if (dAct) tg = (dmIn > 1e-10 && dmOut > 1e-12) ? std::min(2.5, std::max(0.5, std::sqrt(dmIn / dmOut))) : dm;
+                    dm += (tg - dm) * aMk;
+                    if (! dAct && std::abs(dm - 1.0) < 1e-5) dm = 1.0;
+                    yl *= dm; yr *= dm;
+                }
+            }
 
             // split and shape
             double band[3][2]; double outL = 0.0, outR = 0.0;
@@ -304,6 +319,7 @@ public:
                 const bool take = p.solo == 0 || p.solo == b + 1 || ! p.multiband;
                 const double bl = band[b][0] * gs[b], br = band[b][1] * gs[b];
                 pkPost[b] = std::max(std::max(std::abs(bl), std::abs(br)), pkPost[b] * peakDec);
+                wavePreAcc[b] = std::max(wavePreAcc[b], pre); wavePostAcc[b] = std::max(wavePostAcc[b], std::max(std::abs(bl), std::abs(br)));
                 if (take) { outL += bl; outR += br; }
             }
             if (! std::isfinite(outL) || ! std::isfinite(outR)) { reset(); outL = outR = 0.0; }
@@ -353,7 +369,7 @@ public:
     }
 
     // read by the editor (any thread)
-    std::atomic<float> mPhase { 0.f }, mGr { 0.f }, mGain[3] { { 1.f }, { 1.f }, { 1.f } }, mPre[3] { { 0.f }, { 0.f }, { 0.f } }, mPost[3] { { 0.f }, { 0.f }, { 0.f } }, wave[256];
+    std::atomic<float> mPhase { 0.f }, mGr { 0.f }, mGain[3] { { 1.f }, { 1.f }, { 1.f } }, mPre[3] { { 0.f }, { 0.f }, { 0.f } }, mPost[3] { { 0.f }, { 0.f }, { 0.f } }, wave[256], wavePre[3][256], wavePost[3][256];   // wavePre / wavePost: per band peaks folded over the cycle, before and after the ducking
 
 private:
     static constexpr int kLim = 1024;
@@ -369,7 +385,8 @@ private:
     double limBuf[2][kLim]; int limPos = 0; double tgt[kLim], mins[kLim]; double gRel = 1.0, limMix = 1.0, grNow = 0.0;
     double phase = 1.0, sinceHit = 1e12, e2 = 0.0; int holdoff = 0; bool active = false;
     double gs[3] { 1, 1, 1 }, pk[3] { 0, 0, 0 }, pkPost[3] { 0, 0, 0 }, depth[3] { 0, 0, 0 }, wMix = 0.0;
-    double wavePkAcc = 0.0; int waveColCur = 0;
+    double wavePkAcc = 0.0; int waveColCur = 0; double wavePreAcc[3] { 0, 0, 0 }, wavePostAcc[3] { 0, 0, 0 };
+    double dmIn = 0.0, dmOut = 0.0, dm = 1.0;   // closed-loop level staging around the drive section
 
     static double bandAmt(const Params& p, int b) { return p.multiband ? (b == 0 ? p.amtLo : b == 1 ? p.amtMid : p.amtHi) * 0.01 : 1.0; }
 

@@ -164,6 +164,41 @@ int main()
             CHECK(std::sqrt(s / (double) (N / 2)) > 1e-3, "knob %d does nothing", k);
         }
     }
+    // closed-loop drive level staging: real material (bass-heavy, kick and hats) keeps its RMS within 0.5 dB at 50 % and 100 %
+    {
+        flat(tb); const size_t M = (size_t) (fs * 6);
+        std::vector<float> bass(M), kh(M); std::mt19937 rg(11); std::uniform_real_distribution<float> nz(-1.f, 1.f);
+        for (size_t i = 0; i < M; ++i)
+        {
+            const double t = (double) i / fs;
+            bass[i] = (float) (0.35 * std::sin(2 * kPi * 41.0 * t) + 0.2 * std::sin(2 * kPi * 82.0 * t + 0.7) + 0.04 * std::sin(2 * kPi * 330.0 * t));
+            const double bt = std::fmod(t, 0.5), ht = std::fmod(t + 0.25, 0.5);
+            const double kick = 0.8 * std::exp(-bt * 14.0) * std::sin(2 * kPi * (50.0 + 90.0 * std::exp(-bt * 40.0)) * bt);
+            const double hat = 0.25 * std::exp(-ht * 60.0) * (double) nz(rg);
+            kh[i] = (float) (kick + hat);
+        }
+        const char* nm[6] = { "tube", "tape", "soft", "drive", "transistor", "fuzz" };
+        auto rmsTail = [&](const std::vector<float>& x) { double a = 0; const size_t o = M / 2; for (size_t i = o; i < x.size(); ++i) a += (double) x[i] * x[i]; return std::sqrt(a / (double) (x.size() - o)); };
+        for (int sig = 0; sig < 2; ++sig)
+        {
+            const std::vector<float>& in = sig ? kh : bass;
+            std::vector<float> ref = in; { Engine e; e.prepare(fs); Params p; p.multiband = false; p.limOn = false; std::vector<float> r = ref; run(e, ref, r, p, tm, tb); }
+            for (int k = 0; k < 6; ++k) for (int lv = 0; lv < 2; ++lv)
+            {
+                Engine e; e.prepare(fs); Params p; p.multiband = false; p.limOn = false;
+                double* d[6] = { &p.dTube, &p.dTape, &p.dSoft, &p.dDrive, &p.dTrans, &p.dFuzz }; *d[k] = lv ? 100.0 : 50.0;
+                std::vector<float> l = in, r = in; run(e, l, r, p, tm, tb);
+                bool ok = true; for (float v : l) if (! std::isfinite(v)) ok = false;
+                const double db = 20 * std::log10(rmsTail(l) / rmsTail(ref));
+                std::printf("level staging %-5s %-10s %3d %%: %+.2f dB vs drive 0\n", sig ? "kick" : "bass", nm[k], lv ? 100 : 50, db);
+                CHECK(ok, "NaN in staging %s", nm[k]); CHECK(std::abs(db) < 0.5, "%s %s %d %% level moved %.2f dB", sig ? "kick" : "bass", nm[k], lv ? 100 : 50, db);
+            }
+        }
+        // drive 0 must be untouched by the staging: identical to a run where the drive section never woke up
+        { Engine e1, e2; e1.prepare(fs); e2.prepare(fs); Params p; p.multiband = false; p.limOn = false; std::vector<float> a = bass, b = bass, r1 = bass, r2 = bass;
+          run(e1, a, r1, p, tm, tb); p.dTube = 0.005; run(e2, b, r2, p, tm, tb);
+          size_t bad = 0; for (size_t i = 0; i < a.size(); ++i) if (a[i] != b[i]) ++bad; CHECK(bad == 0, "drive below 0.01 %% is not bit exact (%zu)", bad); }
+    }
     std::printf(fails ? "\n%d FAILED\n" : "\nall passed\n", fails);
     return fails ? 1 : 0;
 }
