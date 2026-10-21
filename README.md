@@ -4,6 +4,8 @@
 
 A free, open source volume shaper (VST3 and standalone) for kick pumps, trance gates and chops, from the Studio 87 cat plugin suite. It splits the sound into three bands and gives each band its own drawn volume curve, tempo synced or triggered by hits. No sidechain needed (but it can use one).
 
+<p align="center"><img src="docs/screenshot.png" alt="Scaredy Cat editor" width="900"><br><sub>Screenshot of the plugin page in docs/mockups.</sub></p>
+
 ## What it does
 - Three bands (crossovers at 120 Hz and 2.4 kHz by default, 12/24/48 dB per octave or linear phase), each with its own envelope you draw.
 - Envelope editor: drag points, double click to add, bend segments, ramp/hold/step tools, shape presets, grid, snap, swing, lock.
