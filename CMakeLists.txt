@@ -5,7 +5,7 @@ include(FetchContent)
 FetchContent_Declare(juce GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
     GIT_TAG 8.0.16-security GIT_SHALLOW TRUE)
 FetchContent_MakeAvailable(juce)
-FetchContent_Declare(cat_ui GIT_REPOSITORY https://github.com/SpeakingColors/cat-ui GIT_TAG main)
+FetchContent_Declare(cat_ui GIT_REPOSITORY https://github.com/SpeakingColors/cat-ui GIT_TAG c247023b9e61e1eda3de6f1da8170f08c4376501)
 FetchContent_MakeAvailable(cat_ui)
 
 juce_add_plugin(ScaredyCat

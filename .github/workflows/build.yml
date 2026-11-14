@@ -17,7 +17,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -29,7 +29,7 @@ jobs:
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release  2>&1 | tee -a ci.log; exit ${PIPESTATUS[0]}
       - name: Build
         run: cmake --build build --config Release --parallel 4 2>&1 | tee -a ci.log; exit ${PIPESTATUS[0]}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ScaredyCat-${{ runner.os }}
           path: build/*_artefacts/
