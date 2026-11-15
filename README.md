@@ -1,5 +1,7 @@
 # Scaredy Cat 🐈
 
+<p align="center"><a href="https://ko-fi.com/studio87"><img src="https://raw.githubusercontent.com/SpeakingColors/.github/main/assets/kofi-banner.svg" alt="Support Studio 87 on Ko-fi" width="440"></a></p>
+
 <img src="assets/icon.svg" width="96" align="right" alt="icon">
 
 A free, open source volume shaper (VST3 and standalone) for kick pumps, trance gates and chops, from the Studio 87 cat plugin suite. It splits the sound into three bands and gives each band its own drawn volume curve, tempo synced or triggered by hits. No sidechain needed (but it can use one).
