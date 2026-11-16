@@ -15,7 +15,6 @@ A free, open source volume shaper (VST3 and standalone) for kick pumps, trance g
 - Six mixable drive stages (Tube, Tape, Soft, PurrOne Drive, Transistor, Fuzz, oversampled), Loudness (opto leveller and hidden soft clipper, dry/wet), lookahead limiter, per-band gain reduction meters, band spectrum and level views that show what the ducking removes.
 - Shape library with thumbnails (your own shapes too), click-free default shape, resizable from every edge and corner.
 - AMOUNT 0 % is an exact bypass (bit for bit), 100 % is the full depth you drew. Exact latency is reported to the host.
-- No telemetry, no network, no data collected.
 
 ## Status
 First build: the code compiles in CI and the DSP core has automated tests (`sh tests/run.sh`), but nothing has been listened to or run in a DAW yet.
