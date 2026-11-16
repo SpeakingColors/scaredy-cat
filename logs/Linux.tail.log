@@ -43,6 +43,14 @@ level staging kick  fuzz        50 %: +0.24 dB vs drive 0, +0.24 dB vs input
 level staging kick  fuzz       100 %: +0.37 dB vs drive 0, +0.36 dB vs input
 
 all passed
+ok:   product id (the catalog repository name) uses only letters, digits, dot, dash and underscore
+ok:   link is studio87://open?product=<repo name>
+ok:   no product gives the plain open link
+ok:   scheme is studio87
+ok:   link is not a web address (no network call)
+ok:   fallback message is the contract text
+ok:   hover bubble says nothing is sent
+ok:   no em dash in the bubble
 -- The C compiler identification is GNU 15.2.0
 -- The CXX compiler identification is GNU 15.2.0
 -- Detecting C compiler ABI info
@@ -82,7 +90,7 @@ Call Stack (most recent call first):
   CMakeLists.txt:11 (juce_add_plugin)
 
 
--- Configuring done (76.5s)
+-- Configuring done (77.2s)
 -- Generating done (0.0s)
 -- Build files have been written to: /home/runner/work/scaredy-cat/scaredy-cat/build
 [  1%] Building VST3 manifest helper for ScaredyCat
@@ -122,15 +130,15 @@ Call Stack (most recent call first):
 In file included from /home/runner/work/scaredy-cat/scaredy-cat/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:145,
                  from /home/runner/work/scaredy-cat/scaredy-cat/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64,
                  from /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxBase.h:2,
-                 from /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxEditor.h:2,
-                 from /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxEditor.cpp:1:
+                 from /home/runner/work/scaredy-cat/scaredy-cat/src/Plugins.cpp:2:
 /home/runner/work/scaredy-cat/scaredy-cat/build/_deps/juce-src/modules/juce_audio_processors_headless/processors/juce_AudioProcessor.h:292:18: warning: ‘virtual void juce::AudioProcessor::processBlock(juce::AudioBuffer<double>&, juce::MidiBuffer&)’ was hidden [-Woverloaded-virtual=]
   292 |     virtual void processBlock (AudioBuffer<double>& buffer,
       |                  ^~~~~~~~~~~~
 In file included from /home/runner/work/scaredy-cat/scaredy-cat/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:145,
                  from /home/runner/work/scaredy-cat/scaredy-cat/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64,
                  from /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxBase.h:2,
-                 from /home/runner/work/scaredy-cat/scaredy-cat/src/Plugins.cpp:2:
+                 from /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxEditor.h:2,
+                 from /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxEditor.cpp:1:
 /home/runner/work/scaredy-cat/scaredy-cat/build/_deps/juce-src/modules/juce_audio_processors_headless/processors/juce_AudioProcessor.h:292:18: warning: ‘virtual void juce::AudioProcessor::processBlock(juce::AudioBuffer<double>&, juce::MidiBuffer&)’ was hidden [-Woverloaded-virtual=]
   292 |     virtual void processBlock (AudioBuffer<double>& buffer,
       |                  ^~~~~~~~~~~~
@@ -145,16 +153,6 @@ In file included from /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxEdi
 /home/runner/work/scaredy-cat/scaredy-cat/src/common/Viz.h:91:62: warning: comparing floating-point with ‘==’ or ‘!=’ is unsafe [-Wfloat-equal]
    91 |         g.setColour(red().withAlpha(0.85f)); g.drawText(tick == 0.f ? "0" : "-" + juce::String((int) tick), (int) track.getRight() + 4, (int) y - 5, 24, 10, juce::Justification::left);
       |                                                         ~~~~~^~~~~~
-In file included from /home/runner/work/scaredy-cat/scaredy-cat/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:145,
-                 from /home/runner/work/scaredy-cat/scaredy-cat/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64,
-                 from /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxBase.h:2,
-                 from /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxBase.cpp:1:
-/home/runner/work/scaredy-cat/scaredy-cat/build/_deps/juce-src/modules/juce_audio_processors_headless/processors/juce_AudioProcessor.h:292:18: warning: ‘virtual void juce::AudioProcessor::processBlock(juce::AudioBuffer<double>&, juce::MidiBuffer&)’ was hidden [-Woverloaded-virtual=]
-  292 |     virtual void processBlock (AudioBuffer<double>& buffer,
-      |                  ^~~~~~~~~~~~
-/home/runner/work/scaredy-cat/scaredy-cat/src/common/FxBase.h:60:10: note:   by ‘virtual void catfx::FxBase::processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&)’
-   60 |     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
-      |          ^~~~~~~~~~~~
 In file included from /home/runner/work/scaredy-cat/scaredy-cat/src/scaredy/Scaredy.h:3,
                  from /home/runner/work/scaredy-cat/scaredy-cat/src/Plugins.cpp:3:
 /home/runner/work/scaredy-cat/scaredy-cat/src/core/ScaredyCore.h: In member function ‘void scaredy::Engine::process(float*, float*, const float*, const float*, int, const scaredy::Params&, const scaredy::Timing&, const float*)’:
@@ -172,12 +170,13 @@ In file included from /home/runner/work/scaredy-cat/scaredy-cat/src/scaredy/Scar
 /home/runner/work/scaredy-cat/scaredy-cat/src/core/ScaredyCore.h:437:23: warning: comparing floating-point with ‘==’ or ‘!=’ is unsafe [-Wfloat-equal]
   437 |             t[i] = (m == 0.0 ? wc / kPi : std::sin(wc * m) / (kPi * m)) * w; sum += t[i];
       |                     ~~^~~~~~
-In file included from /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxEditor.h:3,
-                 from /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxBase.cpp:2:
-/home/runner/work/scaredy-cat/scaredy-cat/src/common/Viz.h: In function ‘void catfx::viz::grMeter(juce::Graphics&, juce::Rectangle<float>, float, float)’:
-/home/runner/work/scaredy-cat/scaredy-cat/src/common/Viz.h:91:62: warning: comparing floating-point with ‘==’ or ‘!=’ is unsafe [-Wfloat-equal]
-   91 |         g.setColour(red().withAlpha(0.85f)); g.drawText(tick == 0.f ? "0" : "-" + juce::String((int) tick), (int) track.getRight() + 4, (int) y - 5, 24, 10, juce::Justification::left);
-      |                                                         ~~~~~^~~~~~
+In file included from /home/runner/work/scaredy-cat/scaredy-cat/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:145,
+                 from /home/runner/work/scaredy-cat/scaredy-cat/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64,
+                 from /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxBase.h:2,
+                 from /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxBase.cpp:1:
+/home/runner/work/scaredy-cat/scaredy-cat/build/_deps/juce-src/modules/juce_audio_processors_headless/processors/juce_AudioProcessor.h:292:18: warning: ‘virtual void juce::AudioProcessor::processBlock(juce::AudioBuffer<double>&, juce::MidiBuffer&)’ was hidden [-Woverloaded-virtual=]
+  292 |     virtual void processBlock (AudioBuffer<double>& buffer,
+      |                  ^~~~~~~~~~~~
 In file included from /home/runner/work/scaredy-cat/scaredy-cat/build/_deps/juce-src/modules/juce_audio_processors_headless/juce_audio_processors_headless.h:145,
                  from /home/runner/work/scaredy-cat/scaredy-cat/build/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.h:64,
                  from /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxBase.h:2,
@@ -189,6 +188,15 @@ In file included from /home/runner/work/scaredy-cat/scaredy-cat/build/_deps/juce
 /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxBase.h:60:10: note:   by ‘virtual void catfx::FxBase::processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&)’
    60 |     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
       |          ^~~~~~~~~~~~
+/home/runner/work/scaredy-cat/scaredy-cat/src/common/FxBase.h:60:10: note:   by ‘virtual void catfx::FxBase::processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&)’
+   60 |     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+      |          ^~~~~~~~~~~~
+In file included from /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxEditor.h:3,
+                 from /home/runner/work/scaredy-cat/scaredy-cat/src/common/FxBase.cpp:2:
+/home/runner/work/scaredy-cat/scaredy-cat/src/common/Viz.h: In function ‘void catfx::viz::grMeter(juce::Graphics&, juce::Rectangle<float>, float, float)’:
+/home/runner/work/scaredy-cat/scaredy-cat/src/common/Viz.h:91:62: warning: comparing floating-point with ‘==’ or ‘!=’ is unsafe [-Wfloat-equal]
+   91 |         g.setColour(red().withAlpha(0.85f)); g.drawText(tick == 0.f ? "0" : "-" + juce::String((int) tick), (int) track.getRight() + 4, (int) y - 5, 24, 10, juce::Justification::left);
+      |                                                         ~~~~~^~~~~~
 In file included from /home/runner/work/scaredy-cat/scaredy-cat/src/scaredy/Scaredy.h:3:
 /home/runner/work/scaredy-cat/scaredy-cat/src/core/ScaredyCore.h: In member function ‘void scaredy::Engine::process(float*, float*, const float*, const float*, int, const scaredy::Params&, const scaredy::Timing&, const float*)’:
 /home/runner/work/scaredy-cat/scaredy-cat/src/core/ScaredyCore.h:293:32: warning: comparing floating-point with ‘==’ or ‘!=’ is unsafe [-Wfloat-equal]
@@ -237,21 +245,21 @@ In file included from /home/runner/work/scaredy-cat/scaredy-cat/src/scaredy/Scar
 /home/runner/work/scaredy-cat/scaredy-cat/src/core/ScaredyCore.h:437:23: warning: comparing floating-point with ‘==’ or ‘!=’ is unsafe [-Wfloat-equal]
   437 |             t[i] = (m == 0.0 ? wc / kPi : std::sin(wc * m) / (kPi * m)) * w; sum += t[i];
       |                     ~~^~~~~~
-In file included from /home/runner/work/scaredy-cat/scaredy-cat/src/scaredy/ScaredyEditor.cpp:2:
+In file included from /home/runner/work/scaredy-cat/scaredy-cat/src/scaredy/ScaredyEditor.cpp:3:
 /home/runner/work/scaredy-cat/scaredy-cat/src/common/Viz.h: In function ‘void catfx::viz::grMeter(juce::Graphics&, juce::Rectangle<float>, float, float)’:
 /home/runner/work/scaredy-cat/scaredy-cat/src/common/Viz.h:91:62: warning: comparing floating-point with ‘==’ or ‘!=’ is unsafe [-Wfloat-equal]
    91 |         g.setColour(red().withAlpha(0.85f)); g.drawText(tick == 0.f ? "0" : "-" + juce::String((int) tick), (int) track.getRight() + 4, (int) y - 5, 24, 10, juce::Justification::left);
       |                                                         ~~~~~^~~~~~
 /home/runner/work/scaredy-cat/scaredy-cat/src/scaredy/ScaredyEditor.cpp: In lambda function:
-/home/runner/work/scaredy-cat/scaredy-cat/src/scaredy/ScaredyEditor.cpp:590:19: warning: declaration of ‘env’ shadows a member of ‘{anonymous}::ShapeRow’ [-Wshadow]
-  590 |             auto& env = self->env;
+/home/runner/work/scaredy-cat/scaredy-cat/src/scaredy/ScaredyEditor.cpp:591:19: warning: declaration of ‘env’ shadows a member of ‘{anonymous}::ShapeRow’ [-Wshadow]
+  591 |             auto& env = self->env;
       |                   ^~~
-/home/runner/work/scaredy-cat/scaredy-cat/src/scaredy/ScaredyEditor.cpp:621:16: note: shadowed declaration is here
-  621 |     EnvEditor& env; Scaredy& proc;
+/home/runner/work/scaredy-cat/scaredy-cat/src/scaredy/ScaredyEditor.cpp:622:16: note: shadowed declaration is here
+  622 |     EnvEditor& env; Scaredy& proc;
       |                ^~~
 /home/runner/work/scaredy-cat/scaredy-cat/src/scaredy/ScaredyEditor.cpp: In member function ‘virtual void {anonymous}::Meters::paint(juce::Graphics&)’:
-/home/runner/work/scaredy-cat/scaredy-cat/src/scaredy/ScaredyEditor.cpp:810:70: warning: comparing floating-point with ‘==’ or ‘!=’ is unsafe [-Wfloat-equal]
-  810 |         for (float t : { 0.f, 3.f, 6.f, 12.f, 24.f }) { g.drawText(t == 0.f ? "0" : "-" + juce::String((int) t), 196, (int) yGr(t) - 5, 28, 10, juce::Justification::left); g.setColour(catfx::viz::grid().brighter(0.4f)); g.drawHorizontalLine((int) yGr(t), 112.f, 196.f); g.setColour(hotRed()); }
+/home/runner/work/scaredy-cat/scaredy-cat/src/scaredy/ScaredyEditor.cpp:811:70: warning: comparing floating-point with ‘==’ or ‘!=’ is unsafe [-Wfloat-equal]
+  811 |         for (float t : { 0.f, 3.f, 6.f, 12.f, 24.f }) { g.drawText(t == 0.f ? "0" : "-" + juce::String((int) t), 196, (int) yGr(t) - 5, 28, 10, juce::Justification::left); g.setColour(catfx::viz::grid().brighter(0.4f)); g.drawHorizontalLine((int) yGr(t), 112.f, 196.f); g.setColour(hotRed()); }
       |                                                                    ~~^~~~~~
 [ 40%] Building CXX object CMakeFiles/ScaredyCat.dir/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics_2.cpp.o
 [ 41%] Building CXX object CMakeFiles/ScaredyCat.dir/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics_3.cpp.o
@@ -278,16 +286,16 @@ In file included from /home/runner/work/scaredy-cat/scaredy-cat/src/scaredy/Scar
 [ 74%] Building CXX object CMakeFiles/ScaredyCat_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.cpp.o
 [ 75%] Building CXX object CMakeFiles/ScaredyCat_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
 [ 77%] Building CXX object CMakeFiles/ScaredyCat_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
-[ 83%] Building CXX object CMakeFiles/ScaredyCat_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
-[ 83%] Building CXX object CMakeFiles/ScaredyCat_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.cpp.o
-[ 83%] Building CXX object CMakeFiles/ScaredyCat_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
-[ 83%] Building CXX object CMakeFiles/ScaredyCat_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.cpp.o
-[ 88%] Building CXX object CMakeFiles/ScaredyCat_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
-[ 88%] Building CXX object CMakeFiles/ScaredyCat_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
-[ 88%] Building CXX object CMakeFiles/ScaredyCat_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
-[ 90%] Building CXX object CMakeFiles/ScaredyCat_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.cpp.o
-[ 91%] Building CXX object CMakeFiles/ScaredyCat_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
-[ 93%] Building CXX object CMakeFiles/ScaredyCat_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp.o
+[ 80%] Building CXX object CMakeFiles/ScaredyCat_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.cpp.o
+[ 80%] Building CXX object CMakeFiles/ScaredyCat_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 82%] Building CXX object CMakeFiles/ScaredyCat_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 83%] Building CXX object CMakeFiles/ScaredyCat_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 85%] Building CXX object CMakeFiles/ScaredyCat_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.cpp.o
+[ 87%] Building CXX object CMakeFiles/ScaredyCat_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 88%] Building CXX object CMakeFiles/ScaredyCat_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.cpp.o
+[ 90%] Building CXX object CMakeFiles/ScaredyCat_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 91%] Building CXX object CMakeFiles/ScaredyCat_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp.o
+[ 93%] Building CXX object CMakeFiles/ScaredyCat_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
 [ 95%] Building CXX object CMakeFiles/ScaredyCat_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.cpp.o
 [ 96%] Building CXX object CMakeFiles/ScaredyCat_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp.o
 [ 98%] Linking CXX executable "ScaredyCat_artefacts/Release/Standalone/Scaredy Cat"
