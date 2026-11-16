@@ -1,4 +1,5 @@
 #include "ScaredyEditor.h"
+#include "Studio87Link.h"
 #include "common/Viz.h"
 #include <array>
 #include <set>
@@ -1038,8 +1039,10 @@ struct Content : public juce::Component
             else if (r == 3) { pauseBg = ! pauseBg; gate.setPauseInBackground(pauseBg); }
             else if (r == 4) ed.setSize(kBaseW, kBaseH);
             else if (r == 5) { auto d = proc.presetFolder(); d.createDirectory(); d.revealToUser(); }
-            else if (r == 6) juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon, "Scaredy Cat",
-                "Scaredy Cat by Studio 87.\nFree and open source (AGPL-3.0-or-later).\nIt collects no data and never touches the network.\nhttps://github.com/SpeakingColors/scaredy-cat");
+            else if (r == 6) juce::AlertWindow::showAsync(juce::MessageBoxOptions().withIconType(juce::MessageBoxIconType::InfoIcon).withTitle("Scaredy Cat").withMessage(
+                "Scaredy Cat by Studio 87.\nFree and open source (AGPL-3.0-or-later).\nIt collects no data and never touches the network.\nhttps://github.com/SpeakingColors/scaredy-cat\n\n" + juce::String(studio87link::aboutLine()))
+                .withButton(studio87link::buttonText()).withButton("OK"),
+                [](int pick) { if (pick == 1) studio87link::openUpdater("scaredy-cat"); });   // button 1 = Gear Updater, last button returns 0
         });
     }
     bool pauseBg = true;
